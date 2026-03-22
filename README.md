@@ -1,60 +1,77 @@
-# 冰箱食材识别与管理系统
+# Smart Fridge Ingredient Recognition and Inventory Management
 
-## 项目简介
+Project title: 冰箱食材识别与管理系统
 
-本项目面向比赛场景，目标是构建一个结合视觉识别、事件检测、库存管理与服务接口的冰箱食材识别与管理系统。
-工程采用 C/C++ 与 Python 混合开发：
+## Stage-1 Goal
 
-- `cpp_infer` 负责图像检测、事件检测、边缘侧推理与性能敏感模块。
-- `python_backend` 负责 Web 服务、数据库、库存管理与业务接口。
+This repository currently focuses on the first competition milestone:
 
-## 推荐目录说明
+1. Read a local video on the vision side.
+2. Detect a real fridge interaction event.
+3. Export a structured `event.json`.
+4. Ingest the event on the Python side.
+5. Update SQLite inventory records.
+6. Show inventory, recent events, pending confirmations, and manual correction on a local web page.
+
+The code is intentionally scoped to a minimal runnable closed loop. Real object classifiers, live camera streams, and embedded deployment hooks are left as explicit TODOs.
+
+## Active Directories
 
 ```text
 .
-├── README.md
-├── .gitignore
-├── docs/                  # 设计文档、测试文档、接口说明
-├── configs/               # 系统配置文件
-├── scripts/               # 数据处理、启动、模型转换脚本
-├── cpp_infer/             # C/C++ 检测、事件识别、推理模块
-│   ├── include/
-│   ├── src/
-│   └── CMakeLists.txt
-├── python_backend/        # Web、数据库、库存管理、接口服务
-│   ├── app/
-│   ├── tests/
-│   ├── requirements.txt
-│   └── run.py
+├── cpp/                    # Stage-1 C/C++ vision pipeline
+├── python/                 # Stage-1 Python backend and web UI
+├── shared/                 # Shared protocol between C++ and Python
+├── docs/                   # Architecture, API, DB, pipeline, development plan
 ├── data/
-│   └── sample/            # 仅放示例数据，不提交大数据集
-└── models/                # 仅放轻量部署模型或说明，不提交大训练权重
+│   ├── keyframes/          # Vision side debug keyframes
+│   ├── outputs/            # Vision side event JSON and diff outputs
+│   ├── runtime/            # Local runtime database files
+│   └── sample/             # Small sample data only
+├── cpp_infer/              # Early placeholder kept for compatibility
+└── python_backend/         # Early placeholder kept for compatibility
 ```
 
-## 双人协作分支策略
+## Collaboration Branch Model
 
-- `main`：稳定版本，保持可展示、可汇报、可回退。
-- `dev`：开发集成分支，用于合并日常开发成果。
-- `feature/*`：功能分支，例如 `feature/cpp-detection`、`feature/backend-inventory`。
+- `main`: stable demo branch
+- `dev`: daily integration branch
+- `feature/*`: task branches for each teammate
 
-## 推荐开发分工
+## Recommended Work Split
 
-- 成员 A：视觉检测、事件检测、C/C++ 推理、模型部署与性能优化。
-- 成员 B：Web、数据库、库存管理、接口服务、业务逻辑联调。
+- Member A: vision event detection, ROI motion analysis, C/C++ inference path
+- Member B: SQLite inventory flow, web API, pending confirmations, local page
 
-## 推荐基本 Git 工作流
+## Quick Start
 
-1. 从 `main` 创建 `dev`，日常开发统一基于 `dev`。
-2. 每个功能从 `dev` 拉出独立分支：`feature/*`。
-3. 本地开发完成后先自测，再合并回 `dev`。
-4. 在 `dev` 完成联调、通过测试后，再合并到 `main`。
-5. 关键演示或提交节点打标签，便于回溯。
+### C++ vision demo
 
-## 后续待办
+See [docs/vision_pipeline.md](D:/AAA研电赛/code_0/docs/vision_pipeline.md).
 
-- [ ] 明确比赛功能清单与评分点映射。
-- [ ] 细化系统架构图与模块接口。
-- [ ] 确定检测模型、事件定义与输入输出格式。
-- [ ] 设计数据库表结构与库存变更流程。
-- [ ] 补充接口文档、测试计划与部署说明。
-- [ ] 完善样例数据、轻量模型与启动脚本。
+The stage-1 C++ target is under [cpp/CMakeLists.txt](D:/AAA研电赛/code_0/cpp/CMakeLists.txt). The core pipeline is:
+
+- `video_io`: local video or frame-sequence loading
+- `roi_motion`: motion summary inside the fridge ROI
+- `frame_selector`: before/after keyframe selection
+- `event_detector`: `no_change`, `put_in`, `take_out`, `partial_take_out_candidate`
+
+With OpenCV enabled, the demo reads a real local video file and writes `.jpg` debug images. Without OpenCV, the same pipeline can still be debugged with a local `.pgm` frame directory.
+
+### Python backend
+
+See [docs/backend_api.md](D:/AAA研电赛/code_0/docs/backend_api.md).
+
+The backend reads `data/outputs/*_event.json`, writes SQLite state, and serves a local page with:
+
+- current inventory
+- recent events
+- pending confirmations
+- manual correction entry
+
+## TODO
+
+- [ ] Replace the null classifier with a real lightweight category model.
+- [ ] Replace file-based input with live camera stream input.
+- [ ] Add embedded deployment adapters for the board-side runtime.
+- [ ] Add richer event semantics for drawer state, multi-object scenes, and user confirmation strategy.

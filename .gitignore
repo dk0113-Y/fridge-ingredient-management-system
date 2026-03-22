@@ -80,3 +80,11 @@ $RECYCLE.BIN/
 *.tar
 *.tar.gz
 *.rar
+
+# Stage-1 generated artifacts
+data/keyframes/*.jpg
+data/keyframes/*.pgm
+data/outputs/*.jpg
+data/outputs/*.pgm
+data/outputs/*_event.json
+data/runtime/*.sqlite3

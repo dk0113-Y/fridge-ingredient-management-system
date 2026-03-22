@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Fridge Inventory Demo</title>
+    <style>
+        body {
+            font-family: "Segoe UI", sans-serif;
+            margin: 2rem auto;
+            max-width: 1100px;
+            padding: 0 1rem 3rem;
+            background: #f4f7fb;
+            color: #182433;
+        }
+        h1, h2 {
+            margin-bottom: 0.5rem;
+        }
+        .grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 10px 30px rgba(24, 36, 51, 0.08);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            text-align: left;
+            padding: 0.45rem 0.2rem;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: top;
+        }
+        form.inline {
+            display: grid;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        input, button {
+            padding: 0.55rem 0.7rem;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+        }
+        button {
+            background: #1d4ed8;
+            color: #ffffff;
+            border: none;
+            cursor: pointer;
+        }
+        .muted {
+            color: #5b6b7f;
+            font-size: 0.92rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Fridge Inventory Demo</h1>
+    <p class="muted">
+        Stage-1 closed loop: event JSON -> SQLite inventory -> local web page.
+    </p>
+
+    <div class="grid">
+        <section class="card">
+            <h2>Current Inventory</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Count</th>
+                        <th>Remain</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in inventory %}
+                    <tr>
+                        <td>{{ item.name }}</td>
+                        <td>{{ item.category }}</td>
+                        <td>{{ item.count }}</td>
+                        <td>{{ "%.2f"|format(item.remain_level) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4">No inventory yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+
+        <section class="card">
+            <h2>Recent Events</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Session</th>
+                        <th>Type</th>
+                        <th>Confidence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in events %}
+                    <tr>
+                        <td>{{ event.session_id }}</td>
+                        <td>{{ event.event_type }}</td>
+                        <td>{{ "%.2f"|format(event.confidence) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3">No events imported.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <div class="grid" style="margin-top: 1rem;">
+        <section class="card">
+            <h2>Pending Confirmations</h2>
+            {% for pending in pending_confirmations %}
+            <div style="padding-bottom: 1rem; border-bottom: 1px solid #e2e8f0; margin-bottom: 1rem;">
+                <div><strong>{{ pending.session_id }}</strong></div>
+                <div class="muted">{{ pending.note }}</div>
+                <form class="inline" method="post" action="/confirm">
+                    <input type="hidden" name="action" value="apply_partial">
+                    <input type="hidden" name="session_id" value="{{ pending.session_id }}">
+                    <input name="item_name" value="{{ pending.item_name }}" placeholder="item name">
+                    <input name="category" value="{{ pending.category }}" placeholder="category">
+                    <input name="remain_level" value="{{ pending.remain_level if pending.remain_level is not none else 0.5 }}" placeholder="remain level">
+                    <input name="note" placeholder="confirmation note">
+                    <button type="submit">Confirm Partial Change</button>
+                </form>
+                <form class="inline" method="post" action="/confirm">
+                    <input type="hidden" name="action" value="dismiss">
+                    <input type="hidden" name="session_id" value="{{ pending.session_id }}">
+                    <input name="note" placeholder="dismiss note">
+                    <button type="submit">Dismiss</button>
+                </form>
+            </div>
+            {% else %}
+            <p>No pending confirmations.</p>
+            {% endfor %}
+        </section>
+
+        <section class="card">
+            <h2>Manual Correction</h2>
+            <form class="inline" method="post" action="/confirm">
+                <input type="hidden" name="action" value="manual_adjust">
+                <input name="item_name" placeholder="item name" required>
+                <input name="category" placeholder="category" value="unknown">
+                <input name="count_delta" placeholder="count delta, e.g. 1 or -1" required>
+                <input name="remain_level" placeholder="remain level, optional">
+                <button type="submit">Apply Manual Adjustment</button>
+            </form>
+        </section>
+    </div>
+</body>
+</html>
