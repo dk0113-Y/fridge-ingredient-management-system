@@ -104,6 +104,26 @@ bool test_hand_occlusion_sequence_returns_no_change() {
     );
 }
 
+bool test_trailing_black_frame_is_not_selected_as_after() {
+    const auto before = make_frame(8, 8, 140, 0);
+    auto settled_after = make_frame(8, 8, 140, 1);
+    paint_box(settled_after, 2, 2, 4, 4, 30);
+
+    auto stable_after = settled_after;
+    stable_after.index = 2;
+
+    const auto trailing_black = make_frame(8, 8, 0, 3);
+    auto frames = std::vector<GrayFrame>{before, settled_after, stable_after, trailing_black};
+
+    const auto selected = fridge::select_keyframes(frames);
+    EventDetector detector;
+    const auto result = detector.detect(selected, "test_trailing_black", "before.jpg", "after.jpg");
+    return expect(
+        selected.after_index == 2 && result.event_type == EventType::PutIn,
+        "trailing black frames should not override the settled after frame"
+    );
+}
+
 }  // namespace
 
 int main() {
@@ -113,7 +133,8 @@ int main() {
         test_take_out_detected,
         test_partial_candidate_detected,
         test_low_light_put_in,
-        test_hand_occlusion_sequence_returns_no_change
+        test_hand_occlusion_sequence_returns_no_change,
+        test_trailing_black_frame_is_not_selected_as_after
     };
 
     int failed = 0;
