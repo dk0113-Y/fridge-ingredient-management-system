@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -50,6 +51,6 @@ private:
 
 std::string event_result_to_json(const EventResult& result);
 
-bool write_event_json(const EventResult& result, const std::string& output_path, std::string& error_message);
+bool write_event_json(const EventResult& result, const std::filesystem::path& output_path, std::string& error_message);
 
 }  // namespace fridge

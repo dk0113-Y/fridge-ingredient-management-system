@@ -6,6 +6,10 @@
 #include <fstream>
 #include <sstream>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #ifdef FRIDGE_USE_OPENCV
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
@@ -17,6 +21,76 @@ namespace fridge {
 namespace fs = std::filesystem;
 
 namespace {
+
+#ifdef _WIN32
+std::string wide_to_utf8(const std::wstring& value) {
+    if (value.empty()) {
+        return {};
+    }
+
+    const int required_size = WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        value.c_str(),
+        static_cast<int>(value.size()),
+        nullptr,
+        0,
+        nullptr,
+        nullptr
+    );
+    if (required_size <= 0) {
+        return {};
+    }
+
+    std::string result(static_cast<std::size_t>(required_size), '\0');
+    WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        value.c_str(),
+        static_cast<int>(value.size()),
+        result.data(),
+        required_size,
+        nullptr,
+        nullptr
+    );
+    return result;
+}
+#endif
+
+std::string path_to_display_string(const fs::path& path) {
+#ifdef _WIN32
+    return wide_to_utf8(path.generic_wstring());
+#else
+    return path.generic_string();
+#endif
+}
+
+#ifdef FRIDGE_USE_OPENCV
+bool write_encoded_image_file(const GrayFrame& frame, const fs::path& path, std::string& error_message) {
+    cv::Mat image(frame.height, frame.width, CV_8UC1, const_cast<std::uint8_t*>(frame.pixels.data()));
+
+    const std::string extension = path.has_extension() ? path.extension().string() : ".jpg";
+    std::vector<std::uint8_t> encoded_bytes;
+    if (!cv::imencode(extension, image, encoded_bytes)) {
+        error_message = "Failed to encode image: " + path_to_display_string(path);
+        return false;
+    }
+
+    std::ofstream output(path, std::ios::binary);
+    if (!output) {
+        error_message = "Failed to open output file: " + path_to_display_string(path);
+        return false;
+    }
+
+    output.write(reinterpret_cast<const char*>(encoded_bytes.data()), static_cast<std::streamsize>(encoded_bytes.size()));
+    if (!output) {
+        error_message = "Failed to write encoded image: " + path_to_display_string(path);
+        return false;
+    }
+
+    return true;
+}
+#endif
 
 bool read_token(std::istream& input, std::string& token) {
     token.clear();
@@ -34,7 +108,7 @@ bool read_token(std::istream& input, std::string& token) {
 bool load_pgm_file(const fs::path& path, int frame_index, GrayFrame& frame, std::string& error_message) {
     std::ifstream input(path, std::ios::binary);
     if (!input) {
-        error_message = "Failed to open frame file: " + path.string();
+        error_message = "Failed to open frame file: " + path_to_display_string(path);
         return false;
     }
 
@@ -46,7 +120,7 @@ bool load_pgm_file(const fs::path& path, int frame_index, GrayFrame& frame, std:
         !read_token(input, width_token) ||
         !read_token(input, height_token) ||
         !read_token(input, max_value_token)) {
-        error_message = "Unsupported PGM file: " + path.string();
+        error_message = "Unsupported PGM file: " + path_to_display_string(path);
         return false;
     }
 
@@ -54,7 +128,7 @@ bool load_pgm_file(const fs::path& path, int frame_index, GrayFrame& frame, std:
     const int height = std::stoi(height_token);
     const int max_value = std::stoi(max_value_token);
     if (width <= 0 || height <= 0 || max_value != 255) {
-        error_message = "Invalid PGM metadata: " + path.string();
+        error_message = "Invalid PGM metadata: " + path_to_display_string(path);
         return false;
     }
 
@@ -62,7 +136,7 @@ bool load_pgm_file(const fs::path& path, int frame_index, GrayFrame& frame, std:
     std::vector<std::uint8_t> buffer(static_cast<std::size_t>(width * height));
     input.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(buffer.size()));
     if (!input) {
-        error_message = "Unexpected EOF while reading PGM payload: " + path.string();
+        error_message = "Unexpected EOF while reading PGM payload: " + path_to_display_string(path);
         return false;
     }
 
@@ -83,14 +157,14 @@ bool write_pgm_file(const GrayFrame& frame, const fs::path& path, std::string& e
 
     std::ofstream output(path, std::ios::binary);
     if (!output) {
-        error_message = "Failed to open output file: " + path.string();
+        error_message = "Failed to open output file: " + path_to_display_string(path);
         return false;
     }
 
     output << "P5\n" << frame.width << " " << frame.height << "\n255\n";
     output.write(reinterpret_cast<const char*>(frame.pixels.data()), static_cast<std::streamsize>(frame.pixels.size()));
     if (!output) {
-        error_message = "Failed to write PGM payload: " + path.string();
+        error_message = "Failed to write PGM payload: " + path_to_display_string(path);
         return false;
     }
 
@@ -111,7 +185,7 @@ bool load_frame_directory(const fs::path& directory, std::vector<GrayFrame>& fra
 
     std::sort(files.begin(), files.end());
     if (files.empty()) {
-        error_message = "Frame directory does not contain any .pgm files: " + directory.string();
+        error_message = "Frame directory does not contain any .pgm files: " + path_to_display_string(directory);
         return false;
     }
 
@@ -129,10 +203,9 @@ bool load_frame_directory(const fs::path& directory, std::vector<GrayFrame>& fra
 
 }  // namespace
 
-bool load_frames(const std::string& input_path, std::vector<GrayFrame>& frames, std::string& error_message) {
-    const fs::path source(input_path);
+bool load_frames(const fs::path& source, std::vector<GrayFrame>& frames, std::string& error_message) {
     if (!fs::exists(source)) {
-        error_message = "Input path does not exist: " + source.string();
+        error_message = "Input path does not exist: " + path_to_display_string(source);
         return false;
     }
 
@@ -141,9 +214,9 @@ bool load_frames(const std::string& input_path, std::vector<GrayFrame>& frames, 
     }
 
 #ifdef FRIDGE_USE_OPENCV
-    cv::VideoCapture capture(source.string());
+    cv::VideoCapture capture(path_to_display_string(source));
     if (!capture.isOpened()) {
-        error_message = "Failed to open video file: " + source.string();
+        error_message = "Failed to open video file: " + path_to_display_string(source);
         return false;
     }
 
@@ -166,7 +239,7 @@ bool load_frames(const std::string& input_path, std::vector<GrayFrame>& frames, 
     }
 
     if (frames.empty()) {
-        error_message = "Video file did not yield any frames: " + source.string();
+        error_message = "Video file did not yield any frames: " + path_to_display_string(source);
         return false;
     }
 
@@ -179,22 +252,16 @@ bool load_frames(const std::string& input_path, std::vector<GrayFrame>& frames, 
 #endif
 }
 
-bool write_debug_image(const GrayFrame& frame, const std::string& output_path, std::string& error_message) {
+bool write_debug_image(const GrayFrame& frame, const fs::path& path, std::string& error_message) {
     if (frame.empty()) {
         error_message = "Cannot write an empty frame.";
         return false;
     }
 
-    const fs::path path(output_path);
     fs::create_directories(path.parent_path());
 
 #ifdef FRIDGE_USE_OPENCV
-    cv::Mat image(frame.height, frame.width, CV_8UC1, const_cast<std::uint8_t*>(frame.pixels.data()));
-    if (!cv::imwrite(path.string(), image)) {
-        error_message = "Failed to write image: " + path.string();
-        return false;
-    }
-    return true;
+    return write_encoded_image_file(frame, path, error_message);
 #else
     // TODO: replace the fallback PGM writer with a small JPEG encoder if OpenCV is not used.
     return write_pgm_file(frame, path, error_message);

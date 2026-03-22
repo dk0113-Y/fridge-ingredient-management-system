@@ -8,9 +8,56 @@
 #include <iomanip>
 #include <sstream>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 namespace fridge {
 
 namespace {
+
+#ifdef _WIN32
+std::string wide_to_utf8(const std::wstring& value) {
+    if (value.empty()) {
+        return {};
+    }
+
+    const int required_size = WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        value.c_str(),
+        static_cast<int>(value.size()),
+        nullptr,
+        0,
+        nullptr,
+        nullptr
+    );
+    if (required_size <= 0) {
+        return {};
+    }
+
+    std::string result(static_cast<std::size_t>(required_size), '\0');
+    WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        value.c_str(),
+        static_cast<int>(value.size()),
+        result.data(),
+        required_size,
+        nullptr,
+        nullptr
+    );
+    return result;
+}
+#endif
+
+std::string path_to_display_string(const std::filesystem::path& path) {
+#ifdef _WIN32
+    return wide_to_utf8(path.generic_wstring());
+#else
+    return path.generic_string();
+#endif
+}
 
 std::string now_as_utc_string() {
     const auto now = std::chrono::system_clock::now();
@@ -210,19 +257,18 @@ std::string event_result_to_json(const EventResult& result) {
     return output.str();
 }
 
-bool write_event_json(const EventResult& result, const std::string& output_path, std::string& error_message) {
-    const std::filesystem::path path(output_path);
+bool write_event_json(const EventResult& result, const std::filesystem::path& path, std::string& error_message) {
     std::filesystem::create_directories(path.parent_path());
 
     std::ofstream output(path);
     if (!output) {
-        error_message = "Failed to open event json output: " + path.string();
+        error_message = "Failed to open event json output: " + path_to_display_string(path);
         return false;
     }
 
     output << event_result_to_json(result);
     if (!output) {
-        error_message = "Failed to write event json output: " + path.string();
+        error_message = "Failed to write event json output: " + path_to_display_string(path);
         return false;
     }
 
