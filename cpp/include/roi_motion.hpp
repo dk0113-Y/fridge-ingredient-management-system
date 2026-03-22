@@ -5,7 +5,7 @@
 namespace fridge {
 
 struct RoiMotionConfig {
-    int pixel_delta_threshold = 18;
+    int pixel_delta_threshold = 8;
 };
 
 MotionSummary summarize_motion(

@@ -82,7 +82,7 @@ struct DetectorConfig {
     double event_ratio = 0.040;
     double partial_ratio = 0.020;
     double signed_delta_threshold = 10.0;
-    int pixel_delta_threshold = 18;
+    int pixel_delta_threshold = 8;
 };
 
 struct EventResult {

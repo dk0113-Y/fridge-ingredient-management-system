@@ -31,14 +31,16 @@ double stability_score(const std::vector<MotionSummary>& transitions, std::size_
 std::size_t select_stable_frame(
     const std::vector<MotionSummary>& transitions,
     std::size_t begin_index,
-    std::size_t end_index
+    std::size_t end_index,
+    bool prefer_latest_when_equal
 ) {
     std::size_t best_index = begin_index;
     double best_score = std::numeric_limits<double>::max();
 
     for (std::size_t index = begin_index; index <= end_index; ++index) {
         const double score = stability_score(transitions, index);
-        if (score < best_score) {
+        if (score < best_score ||
+            (prefer_latest_when_equal && score == best_score && index > best_index)) {
             best_score = score;
             best_index = index;
         }
@@ -84,8 +86,8 @@ SelectedFrames select_keyframes(const std::vector<GrayFrame>& frames, const RoiM
         return selected;
     }
 
-    selected.before_index = select_stable_frame(selected.transitions, 0, peak_transition);
-    selected.after_index = select_stable_frame(selected.transitions, peak_transition + 1, frames.size() - 1);
+    selected.before_index = select_stable_frame(selected.transitions, 0, peak_transition, false);
+    selected.after_index = select_stable_frame(selected.transitions, peak_transition + 1, frames.size() - 1, true);
 
     if (selected.after_index <= selected.before_index) {
         selected.before_index = 0;
