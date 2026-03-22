@@ -13,7 +13,7 @@ def create_app(test_config=None):
     project_root = Path(__file__).resolve().parents[2]
     app.config.update(
         PROJECT_ROOT=str(project_root),
-        EVENT_OUTPUT_DIR=str(project_root / "data" / "outputs"),
+        EVENT_OUTPUT_DIR=str(project_root / "data" / "sessions"),
         DATABASE_PATH=str(project_root / "data" / "runtime" / "fridge_demo.sqlite3"),
         JSON_SORT_KEYS=False,
         TESTING=False,

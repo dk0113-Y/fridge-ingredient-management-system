@@ -69,6 +69,24 @@ struct MotionSummary {
     BoundingBox box;
 };
 
+struct ChangeAnalysis {
+    MotionSummary summary;
+    std::vector<ChangeRegion> regions;
+    std::size_t darker_pixels = 0;
+    std::size_t brighter_pixels = 0;
+    double darker_ratio = 0.0;
+    double brighter_ratio = 0.0;
+
+    double dominant_polarity_ratio() const {
+        const std::size_t total = darker_pixels + brighter_pixels;
+        if (total == 0) {
+            return 0.0;
+        }
+        const std::size_t dominant = darker_pixels > brighter_pixels ? darker_pixels : brighter_pixels;
+        return static_cast<double>(dominant) / static_cast<double>(total);
+    }
+};
+
 struct SelectedFrames {
     GrayFrame before_frame;
     GrayFrame after_frame;
@@ -82,6 +100,11 @@ struct DetectorConfig {
     double event_ratio = 0.040;
     double partial_ratio = 0.020;
     double signed_delta_threshold = 10.0;
+    double dominant_polarity_threshold = 0.68;
+    double reorg_balance_threshold = 0.62;
+    double background_like_threshold = 12.0;
+    double region_direction_margin = 10.0;
+    std::size_t reorg_region_threshold = 2;
     int pixel_delta_threshold = 8;
 };
 

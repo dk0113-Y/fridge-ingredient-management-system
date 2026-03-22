@@ -16,6 +16,15 @@ namespace fridge {
 
 namespace {
 
+struct RegionDirectionStats {
+    double weight = 0.0;
+    double before_mean = 0.0;
+    double after_mean = 0.0;
+    double border_mean = 0.0;
+    double before_background_error = 0.0;
+    double after_background_error = 0.0;
+};
+
 #ifdef _WIN32
 std::string wide_to_utf8(const std::wstring& value) {
     if (value.empty()) {
@@ -138,6 +147,167 @@ double compute_confidence(EventType event_type, const MotionSummary& summary, co
     return std::clamp(score, 0.35, 0.98);
 }
 
+double compute_box_mean(const GrayFrame& frame, const BoundingBox& box) {
+    if (frame.empty() || box.width <= 0 || box.height <= 0) {
+        return 0.0;
+    }
+
+    const int x0 = std::clamp(box.x, 0, frame.width);
+    const int y0 = std::clamp(box.y, 0, frame.height);
+    const int x1 = std::clamp(box.x + box.width, 0, frame.width);
+    const int y1 = std::clamp(box.y + box.height, 0, frame.height);
+    if (x1 <= x0 || y1 <= y0) {
+        return 0.0;
+    }
+
+    double sum = 0.0;
+    std::size_t count = 0;
+    for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
+            sum += static_cast<double>(frame.at(x, y));
+            ++count;
+        }
+    }
+    return count == 0 ? 0.0 : sum / static_cast<double>(count);
+}
+
+double compute_border_mean(const GrayFrame& frame, const BoundingBox& box, int margin = 2) {
+    if (frame.empty() || box.width <= 0 || box.height <= 0) {
+        return 0.0;
+    }
+
+    const int outer_x0 = std::max(0, box.x - margin);
+    const int outer_y0 = std::max(0, box.y - margin);
+    const int outer_x1 = std::min(frame.width, box.x + box.width + margin);
+    const int outer_y1 = std::min(frame.height, box.y + box.height + margin);
+
+    double sum = 0.0;
+    std::size_t count = 0;
+    for (int y = outer_y0; y < outer_y1; ++y) {
+        for (int x = outer_x0; x < outer_x1; ++x) {
+            const bool inside_box =
+                x >= box.x && x < box.x + box.width &&
+                y >= box.y && y < box.y + box.height;
+            if (inside_box) {
+                continue;
+            }
+            sum += static_cast<double>(frame.at(x, y));
+            ++count;
+        }
+    }
+
+    if (count == 0) {
+        return compute_box_mean(frame, box);
+    }
+    return sum / static_cast<double>(count);
+}
+
+RegionDirectionStats analyze_region_direction(
+    const GrayFrame& before_frame,
+    const GrayFrame& after_frame,
+    const ChangeRegion& region
+) {
+    RegionDirectionStats stats;
+    stats.weight = region.score;
+    stats.before_mean = compute_box_mean(before_frame, region.box);
+    stats.after_mean = compute_box_mean(after_frame, region.box);
+
+    const double before_border = compute_border_mean(before_frame, region.box);
+    const double after_border = compute_border_mean(after_frame, region.box);
+    stats.border_mean = (before_border + after_border) * 0.5;
+    stats.before_background_error = std::abs(stats.before_mean - stats.border_mean);
+    stats.after_background_error = std::abs(stats.after_mean - stats.border_mean);
+    return stats;
+}
+
+EventType classify_event(
+    const GrayFrame& before_frame,
+    const GrayFrame& after_frame,
+    const ChangeAnalysis& analysis,
+    const DetectorConfig& config
+) {
+    const MotionSummary& summary = analysis.summary;
+    if (summary.changed_ratio < config.no_change_ratio || summary.changed_ratio < config.partial_ratio) {
+        return EventType::NoChange;
+    }
+
+    const double dominant_ratio = analysis.dominant_polarity_ratio();
+    const bool darker_dominant =
+        analysis.darker_ratio >= config.event_ratio &&
+        analysis.darker_pixels > analysis.brighter_pixels &&
+        dominant_ratio >= config.dominant_polarity_threshold;
+    const bool brighter_dominant =
+        analysis.brighter_ratio >= config.event_ratio &&
+        analysis.brighter_pixels > analysis.darker_pixels &&
+        dominant_ratio >= config.dominant_polarity_threshold;
+
+    const bool looks_like_reorg =
+        summary.changed_ratio >= config.partial_ratio &&
+        dominant_ratio <= config.reorg_balance_threshold &&
+        analysis.regions.size() >= config.reorg_region_threshold;
+
+    if (looks_like_reorg) {
+        return EventType::NoChange;
+    }
+
+    double put_in_weight = 0.0;
+    double take_out_weight = 0.0;
+    double partial_take_out_weight = 0.0;
+
+    for (const auto& region : analysis.regions) {
+        const RegionDirectionStats stats = analyze_region_direction(before_frame, after_frame, region);
+        const bool before_background_like = stats.before_background_error <= config.background_like_threshold;
+        const bool after_background_like = stats.after_background_error <= config.background_like_threshold;
+        const double direction_delta = stats.after_background_error - stats.before_background_error;
+
+        if (before_background_like &&
+            direction_delta >= config.region_direction_margin &&
+            stats.after_background_error > config.background_like_threshold) {
+            put_in_weight += stats.weight;
+        }
+
+        if (after_background_like &&
+            direction_delta <= -config.region_direction_margin &&
+            stats.before_background_error > config.background_like_threshold) {
+            take_out_weight += stats.weight;
+        }
+
+        if (!after_background_like &&
+            direction_delta <= -config.region_direction_margin &&
+            stats.before_background_error > stats.after_background_error) {
+            partial_take_out_weight += stats.weight;
+        }
+    }
+
+    if (put_in_weight >= config.partial_ratio) {
+        return EventType::PutIn;
+    }
+
+    if (take_out_weight >= config.partial_ratio) {
+        return EventType::TakeOut;
+    }
+
+    if (partial_take_out_weight >= config.partial_ratio) {
+        return EventType::PartialTakeOutCandidate;
+    }
+
+    if (darker_dominant && summary.mean_delta <= -config.signed_delta_threshold) {
+        return EventType::PutIn;
+    }
+
+    if (brighter_dominant && summary.mean_delta >= config.signed_delta_threshold) {
+        return EventType::TakeOut;
+    }
+
+    if (summary.changed_ratio >= config.partial_ratio &&
+        dominant_ratio > config.reorg_balance_threshold &&
+        !analysis.regions.empty()) {
+        return EventType::PartialTakeOutCandidate;
+    }
+
+    return EventType::NoChange;
+}
+
 }  // namespace
 
 std::vector<DetectedObject> NullClassifier::classify(
@@ -152,8 +322,13 @@ std::vector<DetectedObject> NullClassifier::classify(
     return {};
 }
 
-EventDetector::EventDetector(DetectorConfig config, std::shared_ptr<IObjectClassifier> classifier)
+EventDetector::EventDetector(
+    DetectorConfig config,
+    RoiMotionConfig motion_config,
+    std::shared_ptr<IObjectClassifier> classifier
+)
     : config_(config),
+      motion_config_(motion_config),
       classifier_(std::move(classifier)) {
     if (!classifier_) {
         classifier_ = std::make_shared<NullClassifier>();
@@ -172,31 +347,24 @@ EventResult EventDetector::detect(
     result.before_frame = before_frame_path;
     result.after_frame = after_frame_path;
 
-    const MotionSummary summary = summarize_motion(
+    RoiMotionConfig motion_config = motion_config_;
+    motion_config.pixel_delta_threshold = config_.pixel_delta_threshold;
+    const ChangeAnalysis analysis =
+        analyze_change(selected_frames.before_frame, selected_frames.after_frame, motion_config);
+
+    result.event_type = classify_event(
         selected_frames.before_frame,
         selected_frames.after_frame,
-        RoiMotionConfig{config_.pixel_delta_threshold}
+        analysis,
+        config_
     );
-
-    if (summary.changed_ratio < config_.no_change_ratio) {
-        result.event_type = EventType::NoChange;
-    } else if (summary.changed_ratio < config_.partial_ratio) {
-        result.event_type = EventType::NoChange;
-    } else if (summary.mean_delta <= -config_.signed_delta_threshold) {
-        result.event_type = EventType::PutIn;
-    } else if (summary.mean_delta >= config_.signed_delta_threshold) {
-        result.event_type = EventType::TakeOut;
-    } else if (summary.changed_ratio >= config_.partial_ratio) {
-        result.event_type = EventType::PartialTakeOutCandidate;
-    } else {
-        result.event_type = EventType::NoChange;
-    }
-
-    result.confidence = compute_confidence(result.event_type, summary, config_);
+    result.confidence = compute_confidence(result.event_type, analysis.summary, config_);
     result.need_user_confirm = (result.event_type == EventType::PartialTakeOutCandidate);
 
-    if (summary.has_motion) {
-        result.change_regions.push_back(ChangeRegion{summary.box, summary.changed_ratio});
+    if (!analysis.regions.empty()) {
+        result.change_regions = analysis.regions;
+    } else if (analysis.summary.has_motion) {
+        result.change_regions.push_back(ChangeRegion{analysis.summary.box, analysis.summary.changed_ratio});
     }
 
     result.objects = classifier_->classify(selected_frames.before_frame, selected_frames.after_frame, result.change_regions);

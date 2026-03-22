@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.main import create_app
 
 
-def write_event(event_dir, session_id, event_type, objects=None, need_user_confirm=False):
+def write_event(event_dir, session_id, event_type, objects=None, need_user_confirm=False, nested=False):
     payload = {
         "session_id": session_id,
         "timestamp": "2026-03-22T16:00:00Z",
@@ -38,7 +38,11 @@ def write_event(event_dir, session_id, event_type, objects=None, need_user_confi
         ],
         "need_user_confirm": need_user_confirm,
     }
-    path = Path(event_dir) / f"{session_id}_event.json"
+    if nested:
+        path = Path(event_dir) / session_id / "event.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        path = Path(event_dir) / f"{session_id}_event.json"
     path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     return path
 
@@ -126,6 +130,17 @@ def test_partial_candidate_creates_pending_confirmation(client):
     assert response.status_code == 200
     assert len(payload["pending_confirmations"]) == 1
     assert payload["pending_confirmations"][0]["session_id"] == "session_partial"
+
+
+def test_nested_event_directory_is_supported(client):
+    test_client, event_dir = client
+    write_event(event_dir, "session_nested", "put_in", nested=True)
+
+    response = test_client.get("/inventory")
+    payload = response.get_json()
+
+    assert response.status_code == 200
+    assert any(item["name"] == "milk" and item["count"] == 1 for item in payload["inventory"])
 
 
 def test_manual_adjust_endpoint(client):

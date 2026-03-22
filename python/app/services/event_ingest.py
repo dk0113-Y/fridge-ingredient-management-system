@@ -8,7 +8,7 @@ from ..schemas.event_schema import EventPayload, load_event_payload
 
 def sync_event_directory(db_path, event_dir):
     imported = 0
-    for event_file in sorted(Path(event_dir).glob("*_event.json")):
+    for event_file in sorted(Path(event_dir).rglob("*event.json")):
         imported += int(ingest_event_file(db_path, event_file))
     return imported
 

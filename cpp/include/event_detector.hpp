@@ -34,6 +34,7 @@ class EventDetector {
 public:
     explicit EventDetector(
         DetectorConfig config = {},
+        RoiMotionConfig motion_config = {},
         std::shared_ptr<IObjectClassifier> classifier = nullptr
     );
 
@@ -46,6 +47,7 @@ public:
 
 private:
     DetectorConfig config_;
+    RoiMotionConfig motion_config_;
     std::shared_ptr<IObjectClassifier> classifier_;
 };
 

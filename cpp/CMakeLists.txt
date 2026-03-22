@@ -22,6 +22,8 @@ add_library(fridge_vision
     src/roi_motion.cpp
     src/frame_selector.cpp
     src/event_detector.cpp
+    src/runtime_config.cpp
+    src/debug_report.cpp
 )
 
 target_include_directories(fridge_vision

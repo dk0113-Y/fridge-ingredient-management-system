@@ -87,4 +87,6 @@ data/keyframes/*.pgm
 data/outputs/*.jpg
 data/outputs/*.pgm
 data/outputs/*_event.json
+data/sessions/*
+!data/sessions/.gitkeep
 data/runtime/*.sqlite3
