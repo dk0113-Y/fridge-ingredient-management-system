@@ -10,6 +10,7 @@
 #include "event_detector.hpp"
 #include "frame_selector.hpp"
 #include "runtime_config.hpp"
+#include "video_io.hpp"
 
 namespace {
 
@@ -263,7 +264,7 @@ bool test_debug_summary_is_written() {
             "config.cfg",
             "before.jpg",
             "after.jpg",
-            "diff.jpg",
+            "overlay.jpg",
             "event.json"
         },
         2,
@@ -283,8 +284,30 @@ bool test_debug_summary_is_written() {
         ok &&
         summary_text.find("\"roi_id\": \"debug_roi\"") != std::string::npos &&
         summary_text.find("\"event_type\": \"put_in\"") != std::string::npos &&
+        summary_text.find("\"overlay_frame\": \"overlay.jpg\"") != std::string::npos &&
         summary_text.find("\"transitions\"") != std::string::npos,
         "debug summary should be written with selection and event details"
+    );
+}
+
+bool test_overlay_frame_marks_change_regions() {
+    auto after = make_frame(10, 10, 120, 1);
+    fridge::BoundingBox roi{1, 1, 8, 8};
+    std::vector<fridge::ChangeRegion> regions = {
+        {fridge::BoundingBox{3, 3, 5, 5}, 1.0}
+    };
+
+    const auto overlay = fridge::build_overlay_frame(after, roi, regions);
+
+    return expect(
+        overlay.width == after.width &&
+        overlay.height == after.height &&
+        overlay.at(0, 0) == 120 &&
+        overlay.at(1, 1) == 255 &&
+        overlay.at(2, 2) == 255 &&
+        overlay.at(3, 3) == 255 &&
+        overlay.at(5, 5) == 0,
+        "overlay frame should draw ROI and change-region borders"
     );
 }
 
@@ -326,6 +349,7 @@ int main() {
         test_pipeline_config_file_is_loaded,
         test_full_frame_roi_config_is_allowed,
         test_debug_summary_is_written,
+        test_overlay_frame_marks_change_regions,
         test_trailing_black_frame_is_not_selected_as_after
     };
 

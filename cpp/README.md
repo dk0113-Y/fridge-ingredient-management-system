@@ -6,7 +6,7 @@ This directory contains the minimal C++17 vision chain for the fridge event sess
 2. measure motion inside a configured ROI
 3. pick a stable `before` frame and a stable `after` frame
 4. compare the two keyframes
-5. write `before`, `after`, `diff`, and `event.json`
+5. write `before`, `after`, `overlay`, and `event.json`
 
 The stage-1 scope is intentionally narrow. Real category classification is still a TODO.
 
@@ -18,7 +18,7 @@ The stage-1 scope is intentionally narrow. Real category classification is still
 - `include/video_io.hpp` / `src/video_io.cpp`
   - load frames from a real video file when OpenCV is enabled
   - fallback to `.pgm` frame-directory input when OpenCV is disabled
-  - write debug keyframes and diff images
+  - write debug keyframes and overlay images
 - `include/roi_motion.hpp` / `src/roi_motion.cpp`
   - compute motion summary inside a configured ROI
   - output changed ratio, signed mean delta, and change regions
@@ -114,7 +114,7 @@ Outputs:
 
 - `data/sessions/<session_id>/before.jpg` or `.pgm`
 - `data/sessions/<session_id>/after.jpg` or `.pgm`
-- `data/sessions/<session_id>/diff.jpg` or `.pgm`
+- `data/sessions/<session_id>/overlay.jpg` or `.pgm`
 - `data/sessions/<session_id>/event.json`
 - `data/sessions/<session_id>/debug.json`
 

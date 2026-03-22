@@ -13,7 +13,7 @@ struct DebugArtifacts {
     std::filesystem::path config_path;
     std::filesystem::path before_path;
     std::filesystem::path after_path;
-    std::filesystem::path diff_path;
+    std::filesystem::path overlay_path;
     std::filesystem::path event_path;
 };
 

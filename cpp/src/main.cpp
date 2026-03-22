@@ -79,7 +79,7 @@ struct SessionOutputLayout {
     std::filesystem::path session_dir;
     std::filesystem::path before_path;
     std::filesystem::path after_path;
-    std::filesystem::path diff_path;
+    std::filesystem::path overlay_path;
     std::filesystem::path event_path;
     std::filesystem::path debug_path;
 };
@@ -222,7 +222,7 @@ SessionOutputLayout build_session_output_layout(
         session_dir,
         session_dir / ("before" + image_extension),
         session_dir / ("after" + image_extension),
-        session_dir / ("diff" + image_extension),
+        session_dir / ("overlay" + image_extension),
         session_dir / "event.json",
         session_dir / "debug.json"
     };
@@ -324,7 +324,6 @@ int main(int argc, char** argv) {
             pipeline_config.motion_config,
             pipeline_config.frame_selector_config
         );
-        const auto diff_frame = fridge::build_diff_frame(selected.before_frame, selected.after_frame);
 
         const std::string image_extension =
 #ifdef FRIDGE_USE_OPENCV
@@ -345,11 +344,6 @@ int main(int argc, char** argv) {
             return 1;
         }
 
-        if (!fridge::write_debug_image(diff_frame, output_layout.diff_path, error_message)) {
-            std::cerr << "Failed to write diff frame: " << error_message << "\n";
-            return 1;
-        }
-
         fridge::EventDetector detector(pipeline_config.detector_config, pipeline_config.motion_config);
         auto event_result = detector.detect(
             selected,
@@ -358,9 +352,19 @@ int main(int argc, char** argv) {
             path_to_utf8_string(output_layout.after_path)
         );
         event_result.roi_id = pipeline_config.roi_id;
+        const auto overlay_frame = fridge::build_overlay_frame(
+            selected.after_frame,
+            pipeline_config.motion_config.roi,
+            event_result.change_regions
+        );
 
         if (!fridge::write_event_json(event_result, output_layout.event_path, error_message)) {
             std::cerr << "Failed to write event json: " << error_message << "\n";
+            return 1;
+        }
+
+        if (!fridge::write_debug_image(overlay_frame, output_layout.overlay_path, error_message)) {
+            std::cerr << "Failed to write overlay frame: " << error_message << "\n";
             return 1;
         }
 
@@ -369,7 +373,7 @@ int main(int argc, char** argv) {
             config_path,
             output_layout.before_path,
             output_layout.after_path,
-            output_layout.diff_path,
+            output_layout.overlay_path,
             output_layout.event_path
         };
         if (!fridge::write_debug_summary(

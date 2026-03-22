@@ -135,7 +135,7 @@ bool write_debug_summary(
     output << "  \"outputs\": {\n";
     output << "    \"before_frame\": \"" << escape_json(path_to_utf8_string(artifacts.before_path)) << "\",\n";
     output << "    \"after_frame\": \"" << escape_json(path_to_utf8_string(artifacts.after_path)) << "\",\n";
-    output << "    \"diff_frame\": \"" << escape_json(path_to_utf8_string(artifacts.diff_path)) << "\",\n";
+    output << "    \"overlay_frame\": \"" << escape_json(path_to_utf8_string(artifacts.overlay_path)) << "\",\n";
     output << "    \"event_json\": \"" << escape_json(path_to_utf8_string(artifacts.event_path)) << "\"\n";
     output << "  },\n";
     output << "  \"roi\": {\n";

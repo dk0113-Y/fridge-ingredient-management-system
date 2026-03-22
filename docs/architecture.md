@@ -6,7 +6,7 @@
 
 1. `cpp/` 读取本地视频文件或帧序列。
 2. 视觉主链定位冰箱交互的主要时间窗口。
-3. 事件检测模块输出 `before`、`after`、`diff` 和 `event.json`。
+3. 事件检测模块输出 `before`、`after`、`overlay` 和 `event.json`。
 4. `python/` 扫描 `data/sessions/**/event.json`。
 5. 后端将事件写入 SQLite。
 6. 库存状态根据事件类型进行更新。

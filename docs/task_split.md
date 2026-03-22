@@ -34,7 +34,7 @@ A 同学负责 `cpp/` 下的 C/C++ 视觉主链。
 - 输出以下调试与联调文件：
   - `data/sessions/<session_id>/before.*`
   - `data/sessions/<session_id>/after.*`
-  - `data/sessions/<session_id>/diff.*`
+  - `data/sessions/<session_id>/overlay.*`
   - `data/sessions/<session_id>/event.json`
 - 分类器只保留接口与占位实现，不接真实模型。
 - 扩展以下典型场景测试：

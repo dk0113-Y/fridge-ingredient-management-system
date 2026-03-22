@@ -201,6 +201,67 @@ bool load_frame_directory(const fs::path& directory, std::vector<GrayFrame>& fra
     return true;
 }
 
+void draw_box_border(GrayFrame& frame, const BoundingBox& box, int thickness) {
+    if (frame.empty() || box.width <= 0 || box.height <= 0 || thickness <= 0) {
+        return;
+    }
+
+    const int x0 = std::clamp(box.x, 0, frame.width - 1);
+    const int y0 = std::clamp(box.y, 0, frame.height - 1);
+    const int x1 = std::clamp(box.x + box.width - 1, 0, frame.width - 1);
+    const int y1 = std::clamp(box.y + box.height - 1, 0, frame.height - 1);
+    if (x1 < x0 || y1 < y0) {
+        return;
+    }
+
+    for (int offset = 0; offset < thickness; ++offset) {
+        const int top = std::min(y0 + offset, y1);
+        const int bottom = std::max(y1 - offset, y0);
+        const int left = std::min(x0 + offset, x1);
+        const int right = std::max(x1 - offset, x0);
+
+        for (int x = left; x <= right; ++x) {
+            const auto top_index = static_cast<std::size_t>(top * frame.width + x);
+            const auto bottom_index = static_cast<std::size_t>(bottom * frame.width + x);
+            frame.pixels[top_index] = 255;
+            frame.pixels[bottom_index] = 255;
+        }
+
+        for (int y = top; y <= bottom; ++y) {
+            const auto left_index = static_cast<std::size_t>(y * frame.width + left);
+            const auto right_index = static_cast<std::size_t>(y * frame.width + right);
+            frame.pixels[left_index] = 255;
+            frame.pixels[right_index] = 255;
+        }
+    }
+
+    if (box.width > 2 && box.height > 2) {
+        const BoundingBox inner{
+            box.x + thickness,
+            box.y + thickness,
+            std::max(0, box.width - thickness * 2),
+            std::max(0, box.height - thickness * 2)
+        };
+
+        if (inner.width > 0 && inner.height > 0) {
+            const int inner_x0 = std::clamp(inner.x, 0, frame.width - 1);
+            const int inner_y0 = std::clamp(inner.y, 0, frame.height - 1);
+            const int inner_x1 = std::clamp(inner.x + inner.width - 1, 0, frame.width - 1);
+            const int inner_y1 = std::clamp(inner.y + inner.height - 1, 0, frame.height - 1);
+
+            for (int x = inner_x0; x <= inner_x1; ++x) {
+                frame.pixels[static_cast<std::size_t>(inner_y0 * frame.width + x)] = 0;
+                frame.pixels[static_cast<std::size_t>(inner_y1 * frame.width + x)] = 0;
+            }
+
+            for (int y = inner_y0; y <= inner_y1; ++y) {
+                frame.pixels[static_cast<std::size_t>(y * frame.width + inner_x0)] = 0;
+                frame.pixels[static_cast<std::size_t>(y * frame.width + inner_x1)] = 0;
+            }
+        }
+    }
+}
+
 }  // namespace
 
 bool load_frames(const fs::path& source, std::vector<GrayFrame>& frames, std::string& error_message) {
@@ -268,25 +329,27 @@ bool write_debug_image(const GrayFrame& frame, const fs::path& path, std::string
 #endif
 }
 
-GrayFrame build_diff_frame(const GrayFrame& before_frame, const GrayFrame& after_frame) {
-    GrayFrame diff;
-    if (before_frame.empty() || after_frame.empty() ||
-        before_frame.width != after_frame.width ||
-        before_frame.height != after_frame.height) {
-        return diff;
+GrayFrame build_overlay_frame(
+    const GrayFrame& after_frame,
+    const BoundingBox& roi,
+    const std::vector<ChangeRegion>& change_regions
+) {
+    if (after_frame.empty()) {
+        return {};
     }
 
-    diff.width = before_frame.width;
-    diff.height = before_frame.height;
-    diff.index = after_frame.index;
-    diff.pixels.resize(before_frame.pixels.size());
+    GrayFrame overlay = after_frame;
 
-    for (std::size_t index = 0; index < diff.pixels.size(); ++index) {
-        const int delta = static_cast<int>(after_frame.pixels[index]) - static_cast<int>(before_frame.pixels[index]);
-        diff.pixels[index] = static_cast<std::uint8_t>(std::clamp(std::abs(delta), 0, 255));
+    if (roi.width > 0 && roi.height > 0 &&
+        !(roi.x == 0 && roi.y == 0 && roi.width == after_frame.width && roi.height == after_frame.height)) {
+        draw_box_border(overlay, roi, 2);
     }
 
-    return diff;
+    for (const auto& region : change_regions) {
+        draw_box_border(overlay, region.box, 2);
+    }
+
+    return overlay;
 }
 
 }  // namespace fridge

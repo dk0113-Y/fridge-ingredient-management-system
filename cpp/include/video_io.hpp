@@ -12,6 +12,10 @@ bool load_frames(const std::filesystem::path& input_path, std::vector<GrayFrame>
 
 bool write_debug_image(const GrayFrame& frame, const std::filesystem::path& output_path, std::string& error_message);
 
-GrayFrame build_diff_frame(const GrayFrame& before_frame, const GrayFrame& after_frame);
+GrayFrame build_overlay_frame(
+    const GrayFrame& after_frame,
+    const BoundingBox& roi,
+    const std::vector<ChangeRegion>& change_regions
+);
 
 }  // namespace fridge
