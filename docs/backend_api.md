@@ -1,32 +1,32 @@
-# Backend API
+# 后端接口说明
 
-## Purpose
+## 目标
 
-The Python backend ingests vision-side event JSON files, stores event history, updates SQLite inventory state, and exposes a minimal local web/API surface.
+Python 后端负责接收视觉侧输出的事件 JSON，保存事件历史，更新 SQLite 库存状态，并提供最小可用的本地 Web/API 界面。
 
-## Routes
+## 路由
 
 ### `GET /health`
 
-Returns service health plus current record counts.
+返回服务健康状态以及当前记录数量。
 
 ### `GET /events`
 
-Returns recent events in reverse chronological order.
+按时间倒序返回最近事件列表。
 
 ### `GET /inventory`
 
-Returns current inventory items and pending confirmations.
+返回当前库存项以及待确认列表。
 
 ### `POST /confirm`
 
-Handles:
+用于处理以下操作：
 
-- partial event confirmation
-- dismissal of a pending candidate
-- manual inventory adjustment
+- 局部取出候选事件的确认
+- 待确认项的驳回
+- 手动库存修正
 
-Supported form or JSON fields:
+支持的表单或 JSON 字段包括：
 
 - `action`
 - `session_id`
@@ -38,14 +38,14 @@ Supported form or JSON fields:
 
 ### `GET /`
 
-Renders a minimal local page for demo use.
+渲染本地演示页面。
 
-## Sync Behavior
+## 同步行为
 
-Before each read endpoint and page render, the backend scans `data/outputs/*_event.json` and imports unseen events.
+在每次访问读取型接口或页面渲染前，后端都会扫描 `data/outputs/*_event.json`，并导入尚未处理过的事件。
 
-This keeps the first demo loop simple:
+这样可以保持第一阶段演示流程足够简单：
 
-- run C++ detector
-- refresh the web page
-- see the updated state
+- 先运行 C++ 事件检测程序
+- 再刷新本地 Web 页面
+- 即可看到库存状态更新

@@ -1,36 +1,36 @@
-# Stage-1 Development Plan
+# 第一阶段开发计划
 
-## Objective
+## 目标
 
-Ship a local demo that proves the end-to-end software loop before hardware migration.
+在迁移到硬件平台之前，先交付一个能够证明端到端软件闭环成立的本地演示版本。
 
-## Milestones
+## 里程碑
 
-1. Finish the C++ event pipeline with deterministic debug outputs.
-2. Freeze `shared/event_schema.json`.
-3. Finish Python ingest, SQLite update logic, and local page.
-4. Cover the main competition test scenes with unit tests and sample cases.
-5. Validate the manual confirmation loop for ambiguous events.
+1. 完成 C++ 事件检测主链，并保证调试输出可复现。
+2. 冻结 `shared/event_schema.json` 协议。
+3. 完成 Python 事件接入、SQLite 库存更新和本地页面。
+4. 用单元测试和样例覆盖主要比赛场景。
+5. 验证模糊事件下的人工确认闭环。
 
-## Task Split
+## 任务分工
 
-### Member A
+### A 同学
 
-- Finish `cpp/` modules
-- Tune event thresholds
-- Produce keyframe and diff outputs
-- Expand tests for hand interference, occlusion, and low-light scenes
+- 完成 `cpp/` 相关模块
+- 调整事件检测阈值
+- 产出关键帧和差分图调试结果
+- 扩展对手部干扰、遮挡、低照度等场景的测试
 
-### Member B
+### B 同学
 
-- Finish `python/` API, DB, services, and page
-- Keep ingest idempotent
-- Support pending confirmation and manual correction
-- Add backend tests around event-driven inventory updates
+- 完成 `python/` 下的 API、数据库、服务和页面
+- 保证事件接入幂等
+- 支持待确认流程与手动修正
+- 补充事件驱动库存更新的后端测试
 
-## Risk List
+## 风险清单
 
-- Video decoding dependency on the local toolchain
-- Event threshold instability in low-light videos
-- Ambiguous partial-take cases without a classifier
-- Inventory drift if manual correction flow is skipped
+- 本地工具链对视频解码能力的依赖
+- 低照度视频下事件阈值不稳定
+- 在无分类器支持时，局部取出场景存在歧义
+- 若人工修正流程缺失，库存可能逐步漂移

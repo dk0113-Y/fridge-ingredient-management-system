@@ -1,44 +1,44 @@
-# Stage-1 Architecture
+# 第一阶段系统架构
 
-## Closed Loop
+## 闭环流程
 
-The current milestone implements a local closed loop:
+当前阶段实现的是一个基于本地视频的最小闭环：
 
-1. `cpp/` reads a local video file or a frame sequence.
-2. The vision pipeline finds the main fridge interaction window.
-3. The event detector exports `before`, `after`, `diff`, and `event.json`.
-4. `python/` scans `data/outputs/*_event.json`.
-5. The backend stores the event in SQLite.
-6. Inventory state is updated according to the event type.
-7. A local web page shows inventory, recent events, pending confirmations, and manual correction forms.
+1. `cpp/` 读取本地视频文件或帧序列。
+2. 视觉主链定位冰箱交互的主要时间窗口。
+3. 事件检测模块输出 `before`、`after`、`diff` 和 `event.json`。
+4. `python/` 扫描 `data/outputs/*_event.json`。
+5. 后端将事件写入 SQLite。
+6. 库存状态根据事件类型进行更新。
+7. 本地 Web 页面展示当前库存、最近事件、待确认项和手动修正入口。
 
-## Module Split
+## 模块划分
 
-### C/C++ vision side
+### C/C++ 视觉侧
 
-- `video_io`: local file input abstraction
-- `roi_motion`: frame-to-frame ROI motion summary
-- `frame_selector`: stable before/after keyframe selection
-- `event_detector`: stage-1 event state machine
-- `shared/event_schema.json`: exported protocol contract
+- `video_io`：本地文件输入抽象
+- `roi_motion`：ROI 区域帧间运动摘要
+- `frame_selector`：稳定前后关键帧选择
+- `event_detector`：第一阶段事件状态机
+- `shared/event_schema.json`：跨端共享协议
 
-### Python backend side
+### Python 后端侧
 
-- `app/db`: SQLite connection and schema bootstrap
-- `app/schemas`: event payload validation and parsing
-- `app/services`: event ingest and inventory update logic
-- `app/api`: HTTP routes and local page rendering
-- `app/models`: small domain entities for readability
+- `app/db`：SQLite 连接与建表初始化
+- `app/schemas`：事件载荷校验与解析
+- `app/services`：事件接入与库存更新逻辑
+- `app/api`：HTTP 路由与本地页面渲染
+- `app/models`：提升可读性的轻量领域对象
 
-## Stage-1 Trade-offs
+## 第一阶段取舍
 
-- Real category classification is intentionally stubbed.
-- Video ingestion is designed for OpenCV-first builds, with clear TODOs for board-side migration.
-- `partial_take_out_candidate` is kept separate so the demo can show the user confirmation loop early.
+- 细粒度类别识别目前只保留占位接口，不接真实模型。
+- 视频接入优先面向 OpenCV 构建，同时明确保留后续迁移到板端的 TODO。
+- `partial_take_out_candidate` 单独保留，用于尽早打通“待确认”这一业务闭环。
 
-## Next Expansion Points
+## 后续扩展方向
 
-- Replace the null classifier with a lightweight deployed model.
-- Replace local file polling with camera stream ingestion.
-- Add richer event fusion for hand interference and low-light robustness.
-- Move the protocol and thresholds into versioned configs when the pipeline stabilizes.
+- 将空分类器替换为轻量部署模型。
+- 将本地文件轮询替换为摄像头视频流接入。
+- 增强对手部干扰、低照度场景的事件融合与鲁棒性。
+- 当流程稳定后，将协议和阈值收敛到可版本化的配置中。

@@ -1,113 +1,113 @@
-# Task Split
+# 任务分工说明
 
-## Objective
+## 目标
 
-Build the stage-1 software-first closed loop for the competition project:
+面向比赛第一阶段，先完成一个“软件先行”的本地闭环：
 
-1. Read a local video on the C/C++ side.
-2. Detect a real fridge interaction event.
-3. Export structured `event.json`.
-4. Ingest the event on the Python side.
-5. Update SQLite inventory state.
-6. Show inventory, recent events, pending confirmations, and manual correction in a local web page.
+1. C/C++ 侧读取本地视频。
+2. 识别冰箱真实交互事件。
+3. 导出结构化 `event.json`。
+4. Python 侧接收事件。
+5. 更新 SQLite 库存状态。
+6. 在本地 Web 页面展示库存、最近事件、待确认项和手动修正入口。
 
-## Member A Tasks
+## A 同学任务
 
-### Scope
+### 负责范围
 
-Member A owns the C/C++ vision mainline under `cpp/`.
+A 同学负责 `cpp/` 下的 C/C++ 视觉主链。
 
-### Responsibilities
+### 具体职责
 
-- Maintain `cpp/CMakeLists.txt` and keep the stage-1 target buildable.
-- Implement and refine:
+- 维护 `cpp/CMakeLists.txt`，保证第一阶段目标可构建。
+- 实现并持续完善以下模块：
   - `video_io`
   - `roi_motion`
   - `frame_selector`
   - `event_detector`
   - `main.cpp`
-- Keep the stage-1 event output limited to:
+- 将第一阶段事件输出限定为以下四类：
   - `no_change`
   - `put_in`
   - `take_out`
   - `partial_take_out_candidate`
-- Export:
+- 输出以下调试与联调文件：
   - `data/keyframes/*_before.*`
   - `data/keyframes/*_after.*`
   - `data/outputs/*_diff.*`
   - `data/outputs/*_event.json`
-- Keep the classifier as an interface-only placeholder.
-- Expand tests for:
-  - hand interference
-  - short occlusion
-  - organizing without inventory change
-  - low-light scenes
-- Keep clear TODOs for:
-  - later classifier integration
-  - later camera-stream input
-  - later board-side migration
+- 分类器只保留接口与占位实现，不接真实模型。
+- 扩展以下典型场景测试：
+  - 手部干扰
+  - 短时遮挡
+  - 整理食材但库存不变
+  - 低照度场景
+- 在关键位置保留清晰 TODO，说明：
+  - 后续接入分类模型
+  - 后续接入摄像头视频流
+  - 后续迁移到板端
 
-### Deliverables
+### 交付物
 
-- Runnable `fridge_vision_demo`
-- Stable `event.json` export matching `shared/event_schema.json`
-- C++ test cases and updated pipeline notes
+- 可运行的 `fridge_vision_demo`
+- 与 `shared/event_schema.json` 对齐的稳定 `event.json`
+- C++ 测试用例与更新后的视觉流程文档
 
-## Member B Tasks
+## B 同学任务
 
-### Scope
+### 负责范围
 
-Member B owns the Python backend and inventory loop under `python/`.
+B 同学负责 `python/` 下的后端与库存闭环。
 
-### Responsibilities
+### 具体职责
 
-- Maintain `python/requirements.txt`.
-- Implement and refine:
+- 维护 `python/requirements.txt`。
+- 实现并持续完善以下模块：
   - `app/main.py`
   - `app/api`
   - `app/services`
   - `app/models`
   - `app/db`
   - `app/schemas`
-- Keep SQLite schema aligned with stage-1 needs:
+- 维护与第一阶段一致的 SQLite 表结构：
   - `inventory_items`
   - `events`
   - `pending_confirmations`
-- Read `data/outputs/*_event.json` and make ingestion idempotent.
-- Update inventory rules:
+- 读取 `data/outputs/*_event.json`，并保证事件导入幂等。
+- 实现库存更新规则：
   - `put_in` -> `count + 1`
   - `take_out` -> `count - 1`
-  - `partial_take_out_candidate` -> update remain level and/or create pending confirmation
-  - `no_change` -> event log only
-- Provide and maintain:
+  - `partial_take_out_candidate` -> 更新 `remain_level` 和/或写入待确认项
+  - `no_change` -> 只记录事件
+- 提供并维护以下接口：
   - `GET /health`
   - `GET /events`
   - `GET /inventory`
   - `POST /confirm`
-- Keep the local page usable for demo:
-  - current inventory
-  - recent events
-  - pending confirmations
-  - manual correction
-- Add backend tests around ingest, inventory update, and confirmation flow.
+- 保证本地页面可用于演示：
+  - 当前库存
+  - 最近事件
+  - 待确认项
+  - 手动修正入口
+- 补充事件接入、库存更新、确认流程相关测试。
 
-### Deliverables
+### 交付物
 
-- Runnable Flask backend
-- SQLite database bootstrap
-- Working local demo page
-- Passing backend tests
+- 可运行的 Flask 后端
+- 可初始化的 SQLite 数据库
+- 可演示的本地 Web 页面
+- 通过的后端测试
 
-## Shared Tasks
+## 共享任务
 
-### Shared Protocol
+### 共享协议
 
-- Maintain `shared/event_schema.json` as the single contract between C++ and Python.
-- Any schema change must be reflected on both sides in the same branch or same PR.
+- 维护 `shared/event_schema.json` 作为 C++ 与 Python 之间的唯一协议。
+- 任何协议变更都必须在同一分支或同一 PR 中同步修改两侧实现。
 
-### Shared Documents
+### 共享文档
 
-- Keep the following docs in sync with the implementation:
+- 保持以下文档与实现一致：
   - `docs/architecture.md`
   - `docs/vision_pipeline.md`
   - `docs/backend_api.md`
@@ -115,67 +115,67 @@ Member B owns the Python backend and inventory loop under `python/`.
   - `docs/dev_plan.md`
   - `docs/task_split.md`
 
-### Integration
+### 联调要求
 
-- Use `dev` as the integration branch.
-- Develop features in `feature/*` branches.
-- Run a local end-to-end check before merging:
-  1. C++ generates `event.json`
-  2. Python imports it
-  3. SQLite updates correctly
-  4. Web page reflects the change
+- 以 `dev` 作为集成分支。
+- 日常开发统一在 `feature/*` 分支进行。
+- 合并前至少跑通一次本地端到端检查：
+  1. C++ 生成 `event.json`
+  2. Python 成功导入事件
+  3. SQLite 正确更新状态
+  4. Web 页面反映最终结果
 
-### Coordination Rules
+### 协作规则
 
-- Do not change the event type naming casually.
-- Do not bypass `shared/event_schema.json`.
-- Keep generated files out of Git except tracked placeholders.
-- Record any threshold changes or inventory rule changes in docs.
+- 不要随意修改事件类型命名。
+- 不要绕过 `shared/event_schema.json` 私自扩字段。
+- 生成文件除已跟踪占位外，不提交到 Git。
+- 阈值或库存规则调整后，要同步更新文档。
 
-## Milestones
+## 里程碑
 
-### M1: Closed-Loop Skeleton
+### M1：闭环骨架完成
 
-- C++ can export a valid event JSON.
-- Python can ingest JSON and write SQLite.
-- Web page can show inventory and recent events.
+- C++ 可以导出合法事件 JSON。
+- Python 可以导入 JSON 并写入 SQLite。
+- 本地页面可以展示库存与最近事件。
 
-### M2: Competition-Oriented Robustness
+### M2：面向比赛场景增强
 
-- C++ tests cover hand interference, occlusion, no-change organizing, and low light.
-- Python handles ambiguous events through pending confirmations.
-- End-to-end local demo is repeatable.
+- C++ 测试覆盖手部干扰、遮挡、整理无变化、低照度。
+- Python 可以通过待确认项处理模糊事件。
+- 本地端到端演示可以重复跑通。
 
-### M3: Pre-Hardware Handoff
+### M3：硬件迁移前收口
 
-- Interfaces are frozen enough for board-side migration.
-- TODO markers for classifier, camera stream, and embedded runtime are explicit.
-- Documents are updated for the next implementation phase.
+- 接口稳定到足以支撑板端迁移。
+- 分类器、摄像头流、嵌入式运行时的 TODO 足够明确。
+- 文档已经为下一阶段实现做好铺垫。
 
-## Acceptance Criteria
+## 验收标准
 
-### Vision Side
+### 视觉侧
 
-- Given a valid local input source, the C++ demo produces keyframes, diff output, and `event.json`.
-- The exported event type is one of the four stage-1 values.
-- The exported JSON matches the shared schema fields.
+- 给定有效本地输入，C++ demo 能产出关键帧、差分图和 `event.json`。
+- 导出的事件类型必须属于第一阶段规定的四类之一。
+- 导出的 JSON 字段必须符合共享协议要求。
 
-### Backend Side
+### 后端侧
 
-- The backend imports unseen event JSON files without duplicate inserts.
-- Inventory updates follow the defined stage-1 rules.
-- Pending confirmations are created for ambiguous partial events.
-- Manual correction can update inventory state from the local page or API.
+- 后端能导入未处理过的事件 JSON，且不会重复入库。
+- 库存更新符合第一阶段规则。
+- 模糊的局部取出事件会进入待确认流程。
+- 手动修正可以通过页面或 API 修改库存。
 
-### End-to-End Demo
+### 端到端演示
 
-- A generated `put_in` event increases inventory.
-- A generated `take_out` event decreases inventory.
-- A generated `partial_take_out_candidate` event appears in pending confirmation.
-- A generated `no_change` event is logged but does not change stock.
+- `put_in` 事件会增加库存。
+- `take_out` 事件会减少库存。
+- `partial_take_out_candidate` 事件会出现在待确认列表中。
+- `no_change` 事件只记录，不改变库存。
 
-### Documentation and Collaboration
+### 文档与协作
 
-- The task split is clear enough that A and B can work in parallel.
-- The branch workflow remains `main` / `dev` / `feature/*`.
-- Changes merged to `dev` are reproducible locally by the other teammate.
+- 分工清晰到 A、B 两位同学可以并行开发。
+- 分支流程保持 `main` / `dev` / `feature/*`。
+- 合并到 `dev` 的代码能被另一位同学稳定复现。

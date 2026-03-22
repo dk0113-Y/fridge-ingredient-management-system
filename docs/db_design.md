@@ -1,6 +1,6 @@
-# SQLite Design
+# SQLite 数据库设计
 
-## Tables
+## 数据表
 
 ### `inventory_items`
 
@@ -11,7 +11,7 @@
 - `remain_level`
 - `updated_at`
 
-Tracks the latest stock snapshot used by the local page.
+用于保存当前库存快照，供本地页面直接展示。
 
 ### `events`
 
@@ -28,7 +28,7 @@ Tracks the latest stock snapshot used by the local page.
 - `source_file`
 - `created_at`
 
-Stores imported event payloads. `session_id` is unique for stage-1 idempotent import.
+用于保存导入后的事件载荷。第一阶段通过唯一的 `session_id` 保证事件导入幂等。
 
 ### `pending_confirmations`
 
@@ -43,16 +43,16 @@ Stores imported event payloads. `session_id` is unique for stage-1 idempotent im
 - `created_at`
 - `resolved_at`
 
-Holds ambiguous cases such as `partial_take_out_candidate`.
+用于保存 `partial_take_out_candidate` 一类的模糊事件及其确认状态。
 
-## Update Rules
+## 更新规则
 
 - `put_in` -> `count + 1`
-- `take_out` -> `count - 1`, clamped to zero
-- `partial_take_out_candidate` -> update remain level when possible and/or create a pending confirmation
-- `no_change` -> record only
+- `take_out` -> `count - 1`，最小截断为 0
+- `partial_take_out_candidate` -> 尽可能更新 `remain_level`，并在需要时写入待确认表
+- `no_change` -> 只记录事件，不更新库存
 
-## Stage-1 Notes
+## 第一阶段说明
 
-- The classifier is still a stub, so many records will use `unknown` item metadata.
-- The schema favors readability and demo stability over normalization.
+- 当前分类器仍是占位接口，因此很多记录会使用 `unknown` 作为物品元数据。
+- 当前表结构优先考虑可读性、联调效率和演示稳定性，而不是高度范式化。

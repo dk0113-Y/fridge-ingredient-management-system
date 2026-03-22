@@ -1,60 +1,60 @@
-# Vision Pipeline Notes
+# 视觉流程说明
 
-## Goal
+## 目标
 
-The C++ vision chain focuses on event detection first, then object existence, and only later on fine-grained category classification.
+C++ 视觉主链当前遵循“先做事件识别，再做物体存在性判断，最后再接细粒度分类”的原则。
 
-## Stage-1 State Machine
+## 第一阶段状态机
 
-1. Load frames from a local source.
-2. Compute motion summaries between adjacent frames.
-3. Select one stable `before` frame and one stable `after` frame around the strongest interaction window.
-4. Compare the selected pair inside the fridge ROI.
-5. Emit one of:
+1. 从本地输入源读取帧。
+2. 计算相邻帧之间的运动摘要。
+3. 围绕最强交互窗口，选择一张稳定的 `before` 帧和一张稳定的 `after` 帧。
+4. 在冰箱 ROI 内比较这两张关键帧。
+5. 输出以下四类之一：
    - `no_change`
    - `put_in`
    - `take_out`
    - `partial_take_out_candidate`
 
-## Heuristics
+## 启发式指标
 
-- `changed_ratio`: how much of the ROI changed beyond a pixel threshold
-- `mean_delta`: average signed brightness change inside the changed area
-- `peak_transition`: strongest interaction transition in the sequence
-- `stable_frame_score`: lower is better when picking before/after snapshots
+- `changed_ratio`：超过像素阈值后的 ROI 变化占比
+- `mean_delta`：变化区域内的平均有符号亮度差
+- `peak_transition`：整段序列中最强的交互转折点
+- `stable_frame_score`：前后关键帧稳定性评分，越低越好
 
-## Current Threshold Intent
+## 当前阈值含义
 
-- Low `changed_ratio` means `no_change`.
-- Negative `mean_delta` after a meaningful change suggests `put_in`.
-- Positive `mean_delta` after a meaningful change suggests `take_out`.
-- Medium change with weak sign evidence becomes `partial_take_out_candidate`.
+- `changed_ratio` 很低时，判为 `no_change`。
+- 在有效变化下，`mean_delta` 显著为负时，倾向判为 `put_in`。
+- 在有效变化下，`mean_delta` 显著为正时，倾向判为 `take_out`。
+- 当变化明显但符号证据不足时，判为 `partial_take_out_candidate`。
 
-These thresholds are intentionally simple and are expected to be tuned against:
+这些阈值目前故意保持简单，后续需要结合以下场景继续调参：
 
-- hand interference
-- short occlusion
-- organizing food without inventory change
-- low-light scenes
+- 手部干扰
+- 短时遮挡
+- 整理食材但库存无变化
+- 低照度场景
 
-## Inputs and Outputs
+## 输入与输出
 
-### Input
+### 输入
 
-- Stage-1 target input: local video file
-- Debug fallback: local frame directory
+- 第一阶段标准输入：本地视频文件
+- 调试退路输入：本地帧目录
 
-### Output
+### 输出
 
 - `data/keyframes/*_before.jpg`
 - `data/keyframes/*_after.jpg`
 - `data/outputs/*_diff.jpg`
 - `data/outputs/*_event.json`
 
-If the build is done without OpenCV, debug images fall back to `.pgm` files while the event JSON contract stays the same.
+如果当前构建未启用 OpenCV，调试图像会回退为 `.pgm` 文件，但事件 JSON 协议保持不变。
 
-## Known TODOs
+## 已知 TODO
 
-- TODO: connect a real classifier model after event detection is stable.
-- TODO: replace file input with live camera stream input.
-- TODO: add embedded-side video decoding and runtime adapters.
+- TODO：在事件检测稳定后接入真实分类模型。
+- TODO：将文件输入替换为实时摄像头视频流。
+- TODO：补齐板端视频解码与运行时适配。
