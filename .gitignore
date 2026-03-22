@@ -1,0 +1,82 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.venv/
+venv/
+env/
+ENV/
+pip-wheel-metadata/
+
+# Python packaging and runtime
+build/
+dist/
+site/
+*.egg-info/
+*.egg
+*.whl
+
+# Logs
+*.log
+logs/
+log/
+
+# C/C++ / CMake / common build outputs
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+CTestTestfile.cmake
+cmake_install.cmake
+compile_commands.json
+Makefile
+build-*/
+out/
+bin/
+obj/
+*.o
+*.obj
+*.so
+*.a
+*.lib
+*.dll
+*.exe
+*.pdb
+
+# IDE
+.vscode/
+.idea/
+.vs/
+*.user
+*.suo
+*.VC.db
+
+# Databases and temp files
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.tmp
+*.temp
+*.bak
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Model or dataset archives that should not be committed casually
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.rar
