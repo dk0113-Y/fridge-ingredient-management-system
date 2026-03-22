@@ -32,10 +32,10 @@ A 同学负责 `cpp/` 下的 C/C++ 视觉主链。
   - `take_out`
   - `partial_take_out_candidate`
 - 输出以下调试与联调文件：
-  - `data/keyframes/*_before.*`
-  - `data/keyframes/*_after.*`
-  - `data/outputs/*_diff.*`
-  - `data/outputs/*_event.json`
+  - `data/sessions/<session_id>/before.*`
+  - `data/sessions/<session_id>/after.*`
+  - `data/sessions/<session_id>/diff.*`
+  - `data/sessions/<session_id>/event.json`
 - 分类器只保留接口与占位实现，不接真实模型。
 - 扩展以下典型场景测试：
   - 手部干扰
@@ -73,7 +73,7 @@ B 同学负责 `python/` 下的后端与库存闭环。
   - `inventory_items`
   - `events`
   - `pending_confirmations`
-- 读取 `data/outputs/*_event.json`，并保证事件导入幂等。
+- 读取 `data/sessions/**/event.json`，并保证事件导入幂等。
 - 实现库存更新规则：
   - `put_in` -> `count + 1`
   - `take_out` -> `count - 1`

@@ -19,17 +19,17 @@ The code is intentionally scoped to a minimal runnable closed loop. Real object 
 
 ```text
 .
-├── cpp/                    # Stage-1 C/C++ vision pipeline
-├── python/                 # Stage-1 Python backend and web UI
-├── shared/                 # Shared protocol between C++ and Python
-├── docs/                   # Architecture, API, DB, pipeline, development plan
-├── data/
-│   ├── keyframes/          # Vision side debug keyframes
-│   ├── outputs/            # Vision side event JSON and diff outputs
-│   ├── runtime/            # Local runtime database files
-│   └── sample/             # Small sample data only
-├── cpp_infer/              # Early placeholder kept for compatibility
-└── python_backend/         # Early placeholder kept for compatibility
+|-- cpp/                    # Stage-1 C/C++ vision pipeline
+|-- python/                 # Stage-1 Python backend and web UI
+|-- shared/                 # Shared protocol between C++ and Python
+|-- docs/                   # Architecture, API, DB, pipeline, development plan
+|-- configs/                # Stage-1 ROI and threshold config
+|-- data/
+|   |-- sessions/           # Per-run vision outputs grouped by session
+|   `-- runtime/            # Local runtime database files
+|-- video/                  # Local test videos
+|-- cpp_infer/              # Early placeholder kept for compatibility
+`-- python_backend/         # Early placeholder kept for compatibility
 ```
 
 ## Collaboration Branch Model
@@ -47,22 +47,22 @@ The code is intentionally scoped to a minimal runnable closed loop. Real object 
 
 ### C++ vision demo
 
-See [docs/vision_pipeline.md](D:/AAA研电赛/code_0/docs/vision_pipeline.md).
+See [vision_pipeline.md](D:/AAA研电赛/code_0/docs/vision_pipeline.md).
 
-The stage-1 C++ target is under [cpp/CMakeLists.txt](D:/AAA研电赛/code_0/cpp/CMakeLists.txt). The core pipeline is:
+The stage-1 C++ target is under [CMakeLists.txt](D:/AAA研电赛/code_0/cpp/CMakeLists.txt). The core pipeline is:
 
 - `video_io`: local video or frame-sequence loading
 - `roi_motion`: motion summary inside the fridge ROI
 - `frame_selector`: before/after keyframe selection
 - `event_detector`: `no_change`, `put_in`, `take_out`, `partial_take_out_candidate`
 
-With OpenCV enabled, the demo reads a real local video file and writes `.jpg` debug images. Without OpenCV, the same pipeline can still be debugged with a local `.pgm` frame directory.
+With OpenCV enabled, the demo reads a real local video file and writes debug images. Without OpenCV, the same pipeline can still be debugged with a local `.pgm` frame directory.
 
 ### Python backend
 
-See [docs/backend_api.md](D:/AAA研电赛/code_0/docs/backend_api.md).
+See [backend_api.md](D:/AAA研电赛/code_0/docs/backend_api.md).
 
-The backend reads `data/outputs/*_event.json`, writes SQLite state, and serves a local page with:
+The backend reads `data/sessions/**/event.json`, writes SQLite state, and serves a local page with:
 
 - current inventory
 - recent events

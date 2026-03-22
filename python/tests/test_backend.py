@@ -16,8 +16,8 @@ def write_event(event_dir, session_id, event_type, objects=None, need_user_confi
         "event_type": event_type,
         "roi_id": "main_compartment",
         "confidence": 0.92,
-        "before_frame": "data/keyframes/before.jpg",
-        "after_frame": "data/keyframes/after.jpg",
+        "before_frame": f"data/sessions/{session_id}/before.jpg",
+        "after_frame": f"data/sessions/{session_id}/after.jpg",
         "change_regions": [
             {
                 "x": 10,
