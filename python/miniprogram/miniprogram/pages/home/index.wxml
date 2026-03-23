@@ -1,0 +1,44 @@
+<view class="page home-page">
+  <view class="top-row">
+    <view>
+      <view class="greeting">{{greetingText}}</view>
+      <view class="date-text">{{currentDateText}}</view>
+    </view>
+  </view>
+
+  <view class="card summary-card gradient-card">
+    <view class="summary-top">
+      <view class="{{connectionClass}}">{{connectionText}}</view>
+      <view class="summary-sync">最近同步 {{syncText}}</view>
+    </view>
+
+    <view class="summary-grid">
+      <view class="summary-cell">
+        <view class="summary-number">{{inventoryCount}}</view>
+        <view class="summary-label">库存总数</view>
+      </view>
+      <view class="summary-cell">
+        <view class="summary-number">{{pendingCount}}</view>
+        <view class="summary-label">待确认</view>
+      </view>
+      <view class="summary-cell">
+        <view class="summary-number">{{recentEventCount}}</view>
+        <view class="summary-label">最近事件</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{errorText}}" class="card error-card">
+    <view class="error-title">当前无法连接后端</view>
+    <view class="error-text">{{errorText}}</view>
+  </view>
+
+  <view class="feature-grid">
+    <view class="card feature-card" bindtap="handleGoConnect">
+      <view class="feature-icon">连</view>
+      <view class="feature-title">连接</view>
+    </view>
+  </view>
+
+  <demo-tabbar active="home"></demo-tabbar>
+</view>

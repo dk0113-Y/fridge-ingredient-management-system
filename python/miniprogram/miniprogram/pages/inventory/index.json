@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "库存页",
+  "usingComponents": {
+    "demo-tabbar": "/components/demo-tabbar/index"
+  }
+}

@@ -1,3 +1,8 @@
+import json
+from datetime import datetime, timezone
+from uuid import uuid4
+
+from ..category_mapping import normalize_category
 from ..db.database import get_connection
 from .event_ingest import sync_event_directory, upsert_inventory_item
 
@@ -69,8 +74,10 @@ class InventoryService:
         action = (payload.get("action") or "").strip()
         session_id = (payload.get("session_id") or "").strip()
         item_name = (payload.get("item_name") or "unknown").strip() or "unknown"
-        category = (payload.get("category") or "unknown").strip() or "unknown"
+        category = normalize_category((payload.get("category") or "other").strip() or "other")
         count_delta = int(payload.get("count_delta", 0) or 0)
+        inventory_id_raw = payload.get("inventory_id")
+        inventory_id = None if inventory_id_raw in (None, "", "null") else int(inventory_id_raw)
         remain_level_raw = payload.get("remain_level")
         remain_level = None if remain_level_raw in (None, "", "null") else float(remain_level_raw)
         note = (payload.get("note") or "").strip()
@@ -104,17 +111,28 @@ class InventoryService:
                         item_name,
                         category,
                         remain_level if remain_level is not None else 0.5,
-                        note or "Confirmed partial change.",
+                        note or "Confirmed by user.",
                         session_id,
                     ),
                 )
             elif action == "manual_adjust":
-                upsert_inventory_item(
+                change = upsert_inventory_item(
                     connection,
                     item_name,
                     category,
                     count_delta=count_delta,
                     remain_level=remain_level,
+                    inventory_id=inventory_id,
+                )
+                self._record_manual_event(
+                    connection,
+                    item_name=item_name,
+                    category=category,
+                    count_delta=count_delta,
+                    remain_level=remain_level,
+                    inventory_id=inventory_id,
+                    note=note,
+                    change=change,
                 )
             else:
                 raise ValueError(f"Unsupported action: {action}")
@@ -126,3 +144,56 @@ class InventoryService:
             "action": action,
             "session_id": session_id,
         }
+
+    def _record_manual_event(self, connection, item_name, category, count_delta, remain_level, inventory_id, note, change):
+        if not change or not change.get("changed"):
+            return
+
+        event_type = self._classify_manual_event(inventory_id, change)
+        timestamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        session_id = f"{event_type}_{item_name}_{uuid4().hex[:8]}"
+        raw_json = json.dumps(
+            {
+                "source": "manual_adjust",
+                "event_type": event_type,
+                "item_name": item_name,
+                "category": category,
+                "count_delta": count_delta,
+                "remain_level": remain_level,
+                "inventory_id": inventory_id,
+                "note": note,
+                "result": change,
+            },
+            ensure_ascii=False,
+        )
+
+        connection.execute(
+            """
+            INSERT INTO events (
+                session_id, timestamp, event_type, roi_id, confidence,
+                before_frame, after_frame, need_user_confirm, raw_json, source_file
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                session_id,
+                timestamp,
+                event_type,
+                "manual_adjust",
+                1.0,
+                "",
+                "",
+                0,
+                raw_json,
+                "manual://mini-program",
+            ),
+        )
+
+    def _classify_manual_event(self, inventory_id, change):
+        if inventory_id is None:
+            return "manual_add"
+
+        if change.get("result_count", 0) == 0:
+            return "manual_delete"
+
+        return "manual_edit"

@@ -1,0 +1,49 @@
+.confirm-page {
+  padding-top: 18rpx;
+}
+
+.confirm-card {
+  padding: 28rpx;
+}
+
+.confirm-title {
+  color: #ffffff;
+}
+
+.confirm-subtitle {
+  margin-top: 12rpx;
+  color: rgba(255, 255, 255, 0.92);
+  line-height: 1.7;
+}
+
+.field-block {
+  margin-top: 26rpx;
+}
+
+.confirm-label {
+  margin-bottom: 12rpx;
+  color: #ffffff;
+  font-size: 26rpx;
+}
+
+.confirm-input {
+  min-height: 88rpx;
+  padding: 0 24rpx;
+  box-sizing: border-box;
+  border-radius: 18rpx;
+  background: rgba(255, 255, 255, 0.96);
+  color: #10233f;
+  display: flex;
+  align-items: center;
+}
+
+.confirm-submit {
+  margin-top: 34rpx;
+  height: 76rpx;
+  line-height: 76rpx;
+  border-radius: 999rpx;
+  background: #ffffff;
+  color: #2f68d4;
+  font-size: 30rpx;
+  font-weight: 700;
+}

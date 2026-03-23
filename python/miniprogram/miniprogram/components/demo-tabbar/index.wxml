@@ -1,0 +1,25 @@
+<view class="tabbar-wrap">
+  <view class="tabbar-shell">
+    <view class="tab-item" bindtap="handleGoHome">
+      <view class="{{homeDotClass}}"></view>
+      <view class="{{homeLabelClass}}">首页</view>
+    </view>
+
+    <view class="tab-item tab-item-left-mid" bindtap="handleGoInventory">
+      <view class="{{inventoryDotClass}}"></view>
+      <view class="{{inventoryLabelClass}}">库存</view>
+    </view>
+
+    <view class="tab-add" bindtap="handleAdd">+</view>
+
+    <view class="tab-item tab-item-right-mid" bindtap="handleGoEvents">
+      <view class="{{eventsDotClass}}"></view>
+      <view class="{{eventsLabelClass}}">事件</view>
+    </view>
+
+    <view class="tab-item" bindtap="handleGoPending">
+      <view class="{{pendingDotClass}}"></view>
+      <view class="{{pendingLabelClass}}">待确认</view>
+    </view>
+  </view>
+</view>

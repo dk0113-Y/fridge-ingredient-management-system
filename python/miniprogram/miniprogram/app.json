@@ -1,0 +1,25 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/inventory/index",
+    "pages/inventory-form/index",
+    "pages/pending/index",
+    "pages/pending-confirm/index",
+    "pages/events/index",
+    "pages/settings/index",
+    "pages/connect-backend/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "冰箱库存",
+    "navigationBarBackgroundColor": "#f4f7fb",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f4f7fb",
+    "backgroundTextStyle": "dark"
+  },
+  "networkTimeout": {
+    "request": 10000
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

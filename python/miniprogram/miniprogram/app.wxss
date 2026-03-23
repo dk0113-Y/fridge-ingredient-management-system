@@ -1,0 +1,148 @@
+page {
+  min-height: 100%;
+  background: linear-gradient(180deg, #f2f6fc 0%, #eef3fb 38%, #f7f9fc 100%);
+  color: #1f2a37;
+  font-size: 28rpx;
+}
+
+.page {
+  min-height: 100vh;
+  padding: 24rpx 24rpx 32rpx;
+  box-sizing: border-box;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 32rpx;
+  box-shadow: 0 18rpx 40rpx rgba(15, 23, 42, 0.08);
+  box-sizing: border-box;
+}
+
+.gradient-card {
+  background: linear-gradient(145deg, #4f8ff4 0%, #2f68d4 100%);
+  color: #ffffff;
+}
+
+.section-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #10233f;
+}
+
+.page-kicker {
+  font-size: 22rpx;
+  letter-spacing: 3rpx;
+  color: #8ea4c0;
+  text-transform: uppercase;
+}
+
+.section-subtitle {
+  margin-top: 12rpx;
+  color: #5f6f82;
+  font-size: 24rpx;
+}
+
+.primary-button {
+  background: #2f56d2;
+  color: #ffffff;
+  border-radius: 999rpx;
+  border: none;
+  font-size: 28rpx;
+  line-height: 1.4;
+}
+
+.ghost-button {
+  background: #eef3ff;
+  color: #2f56d2;
+  border-radius: 999rpx;
+  border: none;
+  font-size: 28rpx;
+  line-height: 1.4;
+}
+
+.danger-button {
+  background: #ef4444;
+  color: #ffffff;
+  border-radius: 999rpx;
+  border: none;
+  font-size: 28rpx;
+  line-height: 1.4;
+}
+
+.outline-button {
+  background: #ffffff;
+  color: #2f56d2;
+  border: 2rpx solid #d7e3ff;
+  border-radius: 999rpx;
+  font-size: 28rpx;
+  line-height: 1.4;
+}
+
+button::after {
+  border: none;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.tag-online {
+  background: #eaf8ef;
+  color: #1f8a4c;
+}
+
+.tag-offline {
+  background: #fdecec;
+  color: #d43c3c;
+}
+
+.tag-neutral {
+  background: #edf2f7;
+  color: #516072;
+}
+
+.field-label {
+  font-size: 26rpx;
+  color: #4b5563;
+  margin-bottom: 12rpx;
+}
+
+.field-input,
+.field-picker {
+  width: 100%;
+  min-height: 88rpx;
+  padding: 0 24rpx;
+  box-sizing: border-box;
+  border-radius: 18rpx;
+  background: #ffffff;
+  border: 2rpx solid #dde6f2;
+  display: flex;
+  align-items: center;
+  color: #10233f;
+}
+
+.field-placeholder {
+  color: #9aa7b8;
+}
+
+.helper-text {
+  margin-top: 10rpx;
+  color: #6b7a8c;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.button-row {
+  display: flex;
+  gap: 20rpx;
+}
+
+.button-row button {
+  flex: 1;
+}

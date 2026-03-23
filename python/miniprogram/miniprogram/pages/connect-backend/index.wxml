@@ -1,0 +1,78 @@
+<view class="page connect-page">
+  <view class="card gradient-card connect-hero">
+    <view class="page-kicker connect-kicker">Backend Link</view>
+    <view class="connect-title">连接后端</view>
+    <view class="connect-subtitle">当前阶段仅支持手动输入 IP + 端口，不做自动发现和局域网扫描。</view>
+
+    <view class="radial-stage">
+      <view class="radial-circle radial-circle-1"></view>
+      <view class="radial-circle radial-circle-2"></view>
+      <view class="radial-circle radial-circle-3"></view>
+      <view class="radial-node radial-node-left">IP</view>
+      <view class="radial-node radial-node-right">端口</view>
+      <view class="radial-center">
+        <view class="radial-status">{{heroStateText}}</view>
+        <view class="radial-value">{{heroCenterText}}</view>
+      </view>
+    </view>
+
+    <view class="connect-hero-address">{{heroAddressText}}</view>
+    <view class="connect-hero-hint">{{heroHintText}}</view>
+  </view>
+
+  <view class="card connect-card">
+    <view class="section-title">手动配置地址</view>
+    <view class="section-subtitle">修改后先测试连接，再保存并使用。</view>
+
+    <view class="field-block">
+      <view class="field-label">当前地址</view>
+      <view class="field-picker">{{currentBaseUrl}}</view>
+    </view>
+
+    <view class="field-block">
+      <view class="field-label">IP 地址</view>
+      <input
+        class="field-input"
+        placeholder="例如：127.0.0.1 或 192.168.1.10"
+        value="{{ip}}"
+        bindinput="handleIpInput"
+      />
+    </view>
+
+    <view class="field-block">
+      <view class="field-label">端口</view>
+      <input
+        class="field-input"
+        type="number"
+        placeholder="默认 5000"
+        value="{{port}}"
+        bindinput="handlePortInput"
+      />
+    </view>
+
+    <view class="field-block">
+      <view class="field-label">预览地址</view>
+      <view class="{{previewFieldClass}}">{{previewText}}</view>
+    </view>
+
+    <view class="button-row submit-row">
+      <button class="outline-button" bindtap="handleTestConnection" loading="{{testing}}">
+        测试连接
+      </button>
+      <button class="primary-button" bindtap="handleSave">保存并使用</button>
+    </view>
+
+    <view wx:if="{{hasTestResult}}" class="{{testResultClass}}">
+      {{testResultText}}
+    </view>
+  </view>
+
+  <view class="card connect-card">
+    <view class="section-title">最近连接记录</view>
+    <view wx:if="{{showEmptyHistory}}" class="section-subtitle">暂无历史记录。</view>
+    <view wx:for="{{recentBaseUrls}}" wx:key="*this" class="recent-item">
+      <view class="recent-url">{{item}}</view>
+      <button class="ghost-button recent-button" data-url="{{item}}" bindtap="handleUseRecent">使用</button>
+    </view>
+  </view>
+</view>

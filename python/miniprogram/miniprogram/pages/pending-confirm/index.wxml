@@ -1,0 +1,25 @@
+<view class="page confirm-page">
+  <view class="card gradient-card confirm-card">
+    <view class="section-title confirm-title">修改后确认</view>
+    <view class="confirm-subtitle">对识别结果做简单修正后再提交。</view>
+
+    <view class="field-block">
+      <view class="confirm-label">名称</view>
+      <input class="confirm-input" value="{{name}}" bindinput="handleNameInput" placeholder="名称" />
+    </view>
+
+    <view class="field-block">
+      <view class="confirm-label">类别</view>
+      <input class="confirm-input" value="{{category}}" bindinput="handleCategoryInput" placeholder="类别" />
+    </view>
+
+    <view class="field-block">
+      <view class="confirm-label">剩余状态</view>
+      <picker mode="selector" range="{{remainLevelLabels}}" value="{{remainLevelIndex}}" bindchange="handleRemainChange">
+        <view class="confirm-input">{{remainPreviewText}}</view>
+      </picker>
+    </view>
+
+    <button class="confirm-submit" bindtap="handleConfirm" loading="{{saving}}">保存并确认</button>
+  </view>
+</view>

@@ -1,0 +1,32 @@
+<view class="page events-page">
+  <view class="page-head">
+    <view class="back-button" bindtap="handleGoHome">‹</view>
+    <view class="page-title">最近事件</view>
+    <view class="page-spacer"></view>
+  </view>
+
+  <view wx:if="{{loading}}" class="card state-card">
+    <view class="state-title">正在加载事件列表</view>
+    <view class="state-text">请稍候。</view>
+  </view>
+
+  <view wx:elif="{{errorText}}" class="card state-card error-card">
+    <view class="state-title">加载失败</view>
+    <view class="state-text">{{errorText}}</view>
+  </view>
+
+  <view wx:elif="{{showEmptyState}}" class="card state-card">
+    <view class="state-title">暂无事件记录</view>
+    <view class="state-text">当前还没有可展示的识别事件。</view>
+  </view>
+
+  <view wx:else class="events-list">
+    <view wx:for="{{items}}" wx:key="id" class="card event-card">
+      <view class="event-time">{{item.timeText}}</view>
+      <view class="event-line">事件类型：{{item.typeText}}</view>
+      <view class="event-line">识别对象：{{item.objectText}}</view>
+    </view>
+  </view>
+
+  <demo-tabbar active="events"></demo-tabbar>
+</view>

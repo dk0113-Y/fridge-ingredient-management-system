@@ -1,0 +1,39 @@
+<view class="page pending-page">
+  <view class="page-head">
+    <view class="back-button" bindtap="handleGoHome">‹</view>
+    <view class="page-title">待确认事项</view>
+    <view class="page-spacer"></view>
+  </view>
+
+  <view wx:if="{{loading}}" class="card state-card">
+    <view class="state-title">正在加载待确认列表</view>
+    <view class="state-text">请稍候。</view>
+  </view>
+
+  <view wx:elif="{{errorText}}" class="card state-card error-card">
+    <view class="state-title">加载失败</view>
+    <view class="state-text">{{errorText}}</view>
+  </view>
+
+  <view wx:elif="{{showEmptyState}}" class="card state-card">
+    <view class="state-title">暂无待确认项</view>
+    <view class="state-text">当前没有需要人工确认的记录。</view>
+  </view>
+
+  <view wx:else class="pending-list">
+    <view wx:for="{{items}}" wx:key="id" class="card pending-card">
+      <view class="pending-line">事件时间：{{item.createdText}}</view>
+      <view class="pending-line">推荐类别：{{item.displayCategory}}</view>
+      <view class="pending-line">识别对象：{{item.displayName}}</view>
+      <view class="pending-line">当前建议：{{item.remainText}}</view>
+      <view class="pending-buttons">
+        <button class="adjust-button" data-id="{{item.id}}" bindtap="handleAdjust">修改后确认</button>
+        <button class="confirm-button" data-id="{{item.id}}" bindtap="handleConfirm">
+          确认
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <demo-tabbar active="pending"></demo-tabbar>
+</view>

@@ -1,0 +1,75 @@
+.events-page {
+  padding-top: 18rpx;
+  padding-bottom: 180rpx;
+}
+
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18rpx;
+}
+
+.back-button,
+.page-spacer {
+  width: 72rpx;
+  height: 72rpx;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40rpx;
+  color: #10233f;
+}
+
+.page-title {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #10233f;
+}
+
+.state-card {
+  margin-top: 22rpx;
+  padding: 28rpx;
+}
+
+.state-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #10233f;
+}
+
+.state-text {
+  margin-top: 14rpx;
+  color: #6b7a8c;
+  line-height: 1.7;
+}
+
+.error-card {
+  border: 2rpx solid #ffd7d7;
+}
+
+.events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.event-card {
+  padding: 24rpx;
+}
+
+.event-time {
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #10233f;
+}
+
+.event-line {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: #10233f;
+}

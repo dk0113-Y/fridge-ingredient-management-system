@@ -1,0 +1,136 @@
+page {
+  background: linear-gradient(180deg, #5ca0ff 0%, #4f8ff4 100%);
+}
+
+.form-page {
+  min-height: 100vh;
+  padding-top: 26rpx;
+}
+
+.form-shell {
+  color: #ffffff;
+  padding: 0 28rpx 60rpx;
+  box-sizing: border-box;
+}
+
+.form-title {
+  text-align: center;
+  font-size: 40rpx;
+  font-weight: 700;
+  margin-bottom: 40rpx;
+}
+
+.form-row {
+  margin-bottom: 24rpx;
+}
+
+.form-label {
+  font-size: 30rpx;
+  margin-bottom: 12rpx;
+}
+
+.form-input {
+  min-height: 78rpx;
+  padding: 0 24rpx;
+  box-sizing: border-box;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.96);
+  color: #10233f;
+}
+
+.category-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.category-chip {
+  min-width: 150rpx;
+  height: 68rpx;
+  padding: 0 24rpx;
+  box-sizing: border-box;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.96);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+}
+
+.category-chip-active {
+  background: #ffffff;
+  color: #2f68d4;
+  font-weight: 700;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.step-button,
+.step-value {
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 12rpx;
+  background: rgba(255, 255, 255, 0.96);
+  color: #10233f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34rpx;
+}
+
+.step-value {
+  margin: 0 10rpx;
+  font-weight: 700;
+}
+
+.remain-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.remain-meta {
+  display: flex;
+  gap: 16rpx;
+  align-items: center;
+}
+
+.remain-level,
+.remain-percent {
+  font-size: 30rpx;
+}
+
+.save-button,
+.delete-button {
+  width: 360rpx;
+  height: 76rpx;
+  line-height: 76rpx;
+  border-radius: 999rpx;
+  font-size: 32rpx;
+  padding: 0;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
+
+.save-button {
+  margin-top: 40rpx;
+  background: #ffffff;
+  color: #2f68d4;
+}
+
+.delete-button {
+  margin-top: 22rpx;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.save-button::after,
+.delete-button::after {
+  border: none;
+}

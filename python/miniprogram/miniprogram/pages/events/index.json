@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "事件列表",
+  "usingComponents": {
+    "demo-tabbar": "/components/demo-tabbar/index"
+  }
+}

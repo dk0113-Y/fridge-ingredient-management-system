@@ -1,0 +1,94 @@
+.pending-page {
+  padding-top: 18rpx;
+  padding-bottom: 180rpx;
+}
+
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18rpx;
+}
+
+.back-button,
+.page-spacer {
+  width: 72rpx;
+  height: 72rpx;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40rpx;
+  color: #10233f;
+}
+
+.page-title {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #10233f;
+}
+
+.state-card {
+  margin-top: 22rpx;
+  padding: 28rpx;
+}
+
+.state-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #10233f;
+}
+
+.state-text {
+  margin-top: 14rpx;
+  color: #6b7a8c;
+  line-height: 1.7;
+}
+
+.error-card {
+  border: 2rpx solid #ffd7d7;
+}
+
+.pending-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.pending-card {
+  padding: 24rpx;
+}
+
+.pending-line {
+  font-size: 24rpx;
+  line-height: 1.8;
+  color: #10233f;
+}
+
+.pending-buttons {
+  margin-top: 18rpx;
+  display: flex;
+  gap: 16rpx;
+}
+
+.adjust-button,
+.confirm-button {
+  flex: 1;
+  height: 68rpx;
+  line-height: 68rpx;
+  border-radius: 999rpx;
+  font-size: 28rpx;
+}
+
+.adjust-button {
+  border: 2rpx solid #8bb3ff;
+  background: #ffffff;
+  color: #3559c7;
+}
+
+.confirm-button {
+  background: linear-gradient(145deg, #5ca0ff 0%, #2f68d4 100%);
+  color: #ffffff;
+}

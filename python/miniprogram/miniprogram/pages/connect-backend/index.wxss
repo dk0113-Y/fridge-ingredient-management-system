@@ -1,0 +1,177 @@
+.connect-page {
+  padding-bottom: 48rpx;
+}
+
+.connect-hero {
+  padding: 30rpx;
+  overflow: hidden;
+}
+
+.connect-kicker,
+.connect-title,
+.connect-subtitle,
+.connect-hero-address,
+.connect-hero-hint {
+  color: #ffffff;
+}
+
+.connect-title {
+  margin-top: 12rpx;
+  font-size: 40rpx;
+  font-weight: 700;
+}
+
+.connect-subtitle {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  opacity: 0.92;
+}
+
+.radial-stage {
+  position: relative;
+  width: 100%;
+  height: 420rpx;
+  margin-top: 26rpx;
+}
+
+.radial-circle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 999rpx;
+  border: 2rpx solid rgba(255, 255, 255, 0.12);
+}
+
+.radial-circle-1 {
+  width: 360rpx;
+  height: 360rpx;
+}
+
+.radial-circle-2 {
+  width: 250rpx;
+  height: 250rpx;
+}
+
+.radial-circle-3 {
+  width: 140rpx;
+  height: 140rpx;
+}
+
+.radial-node {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: 72rpx;
+  padding: 12rpx 16rpx;
+  border-radius: 999rpx;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 22rpx;
+}
+
+.radial-node-left {
+  left: 84rpx;
+}
+
+.radial-node-right {
+  right: 84rpx;
+}
+
+.radial-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 156rpx;
+  height: 156rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.18);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.radial-status {
+  font-size: 22rpx;
+  opacity: 0.88;
+}
+
+.radial-value {
+  margin-top: 10rpx;
+  font-size: 32rpx;
+  font-weight: 700;
+}
+
+.connect-hero-address {
+  word-break: break-all;
+  line-height: 1.6;
+}
+
+.connect-hero-hint {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  opacity: 0.92;
+}
+
+.connect-card {
+  margin-top: 22rpx;
+  padding: 30rpx;
+}
+
+.field-block {
+  margin-top: 26rpx;
+}
+
+.submit-row {
+  margin-top: 34rpx;
+}
+
+.test-result {
+  margin-top: 24rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.test-success {
+  background: #eaf8ef;
+  color: #1f8a4c;
+}
+
+.test-error {
+  background: #fdecec;
+  color: #d43c3c;
+}
+
+.recent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin-top: 22rpx;
+  padding: 20rpx;
+  border-radius: 20rpx;
+  background: #f8fafc;
+}
+
+.recent-url {
+  flex: 1;
+  color: #10233f;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.recent-button {
+  min-width: 120rpx;
+  margin: 0;
+  padding: 0 20rpx;
+  height: 68rpx;
+  line-height: 68rpx;
+  font-size: 24rpx;
+}

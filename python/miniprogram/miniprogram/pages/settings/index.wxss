@@ -1,0 +1,93 @@
+.settings-page {
+  padding-bottom: 48rpx;
+}
+
+.settings-hero {
+  padding: 30rpx;
+}
+
+.settings-kicker,
+.settings-title,
+.settings-subtitle {
+  color: #ffffff;
+}
+
+.settings-title {
+  margin-top: 12rpx;
+  font-size: 40rpx;
+  font-weight: 700;
+}
+
+.settings-subtitle {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  opacity: 0.92;
+}
+
+.settings-status-row {
+  margin-top: 26rpx;
+}
+
+.settings-status-tag {
+  color: #ffffff;
+}
+
+.settings-status-tag.tag-online {
+  background: rgba(34, 197, 94, 0.22);
+}
+
+.settings-status-tag.tag-offline {
+  background: rgba(239, 68, 68, 0.22);
+}
+
+.settings-status-tag.tag-neutral {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.settings-status-hint {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.settings-address-card {
+  margin-top: 24rpx;
+  padding: 24rpx;
+  border-radius: 26rpx;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.settings-address-label {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.settings-address-value {
+  margin-top: 12rpx;
+  color: #ffffff;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.settings-block {
+  margin-top: 22rpx;
+  padding: 30rpx;
+}
+
+.settings-summary {
+  margin-top: 20rpx;
+  color: #3c4b5f;
+  line-height: 1.7;
+}
+
+.settings-actions {
+  margin-top: 28rpx;
+}
+
+.settings-note {
+  margin-top: 18rpx;
+  color: #5f6f82;
+  line-height: 1.7;
+}

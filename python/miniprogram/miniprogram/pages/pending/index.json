@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "待确认事项",
+  "usingComponents": {
+    "demo-tabbar": "/components/demo-tabbar/index"
+  }
+}

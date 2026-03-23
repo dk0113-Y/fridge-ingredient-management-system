@@ -1,0 +1,37 @@
+<view class="page settings-page">
+  <view class="card gradient-card settings-hero">
+    <view class="page-kicker settings-kicker">System Setting</view>
+    <view class="settings-title">连接与联调设置</view>
+    <view class="settings-subtitle">把调试信息收纳到这里，首页只保留比赛展示所需的核心状态。</view>
+
+    <view class="settings-status-row">
+      <view class="tag settings-status-tag {{statusTagClass}}">{{statusText}}</view>
+      <view class="settings-status-hint">{{statusHintText}}</view>
+    </view>
+
+    <view class="settings-address-card">
+      <view class="settings-address-label">当前后端地址</view>
+      <view class="settings-address-value">{{baseUrl}}</view>
+    </view>
+  </view>
+
+  <view class="card settings-block">
+    <view class="section-title">当前状态</view>
+    <view class="section-subtitle">基于当前保存地址读取后端健康检查结果。</view>
+    <view class="settings-summary">{{summaryText}}</view>
+
+    <view class="button-row settings-actions">
+      <button class="outline-button" bindtap="loadConnectionState" loading="{{checking}}">
+        刷新状态
+      </button>
+      <button class="primary-button" bindtap="handleOpenConnectPage">连接后端</button>
+    </view>
+  </view>
+
+  <view class="card settings-block">
+    <view class="section-title">联调说明</view>
+    <view class="settings-note">电脑本地调试可使用 127.0.0.1:5000。</view>
+    <view class="settings-note">真机联调时请改为电脑局域网 IP，例如 192.168.x.x:5000。</view>
+    <view class="settings-note">版本信息：{{versionText}}</view>
+  </view>
+</view>

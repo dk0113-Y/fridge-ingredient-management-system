@@ -1,0 +1,58 @@
+<view class="page form-page">
+  <view class="form-shell">
+    <view class="form-title">{{pageTitle}}</view>
+
+    <view class="form-row">
+      <view class="form-label">名称</view>
+      <input class="form-input" value="{{name}}" placeholder="名称" bindinput="handleNameInput" />
+    </view>
+
+    <view class="form-row">
+      <view class="form-label">类别</view>
+      <view class="category-group">
+        <view
+          wx:for="{{categoryOptions}}"
+          wx:key="value"
+          class="{{item.className}}"
+          data-value="{{item.value}}"
+          bindtap="handleCategorySelect"
+        >
+          {{item.label}}
+        </view>
+      </view>
+    </view>
+
+    <view class="form-row">
+      <view class="form-label">数量</view>
+      <view class="stepper">
+        <view class="step-button" bindtap="handleDecreaseCount">-</view>
+        <view class="step-value">{{countValue}}</view>
+        <view class="step-button" bindtap="handleIncreaseCount">+</view>
+      </view>
+    </view>
+
+    <view class="form-row remain-row">
+      <view class="form-label">剩余状态</view>
+      <view class="remain-meta">
+        <view class="remain-level">百分比</view>
+        <view class="remain-percent">{{remainPercentText}}</view>
+      </view>
+    </view>
+
+    <slider
+      min="0"
+      max="100"
+      step="5"
+      value="{{sliderValue}}"
+      activeColor="#ffffff"
+      backgroundColor="rgba(255,255,255,0.45)"
+      block-color="#ffffff"
+      bindchange="handleRemainChange"
+    />
+
+    <button class="save-button" bindtap="handleSubmit" loading="{{saving}}">保存</button>
+    <button wx:if="{{isEditMode}}" class="delete-button" bindtap="handleDelete" loading="{{deleting}}">
+      删除
+    </button>
+  </view>
+</view>

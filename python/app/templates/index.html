@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="utf-8">
-    <title>Fridge Inventory Demo</title>
+    <title>冰箱库存演示</title>
     <style>
         body {
             font-family: "Segoe UI", sans-serif;
@@ -59,21 +59,21 @@
     </style>
 </head>
 <body>
-    <h1>Fridge Inventory Demo</h1>
+    <h1>冰箱库存演示</h1>
     <p class="muted">
-        Stage-1 closed loop: event JSON -> SQLite inventory -> local web page.
+        第一阶段闭环：事件 JSON -> SQLite 库存 -> 本地 Web 页面。
     </p>
 
     <div class="grid">
         <section class="card">
-            <h2>Current Inventory</h2>
+            <h2>当前库存</h2>
             <table>
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Category</th>
-                        <th>Count</th>
-                        <th>Remain</th>
+                        <th>名称</th>
+                        <th>类别</th>
+                        <th>数量</th>
+                        <th>余量</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -86,7 +86,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="4">No inventory yet.</td>
+                        <td colspan="4">暂无库存记录。</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -94,13 +94,13 @@
         </section>
 
         <section class="card">
-            <h2>Recent Events</h2>
+            <h2>最近事件</h2>
             <table>
                 <thead>
                     <tr>
-                        <th>Session</th>
-                        <th>Type</th>
-                        <th>Confidence</th>
+                        <th>会话</th>
+                        <th>类型</th>
+                        <th>置信度</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -112,7 +112,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="3">No events imported.</td>
+                        <td colspan="3">暂无导入事件。</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -122,7 +122,7 @@
 
     <div class="grid" style="margin-top: 1rem;">
         <section class="card">
-            <h2>Pending Confirmations</h2>
+            <h2>待确认项</h2>
             {% for pending in pending_confirmations %}
             <div style="padding-bottom: 1rem; border-bottom: 1px solid #e2e8f0; margin-bottom: 1rem;">
                 <div><strong>{{ pending.session_id }}</strong></div>
@@ -130,33 +130,33 @@
                 <form class="inline" method="post" action="/confirm">
                     <input type="hidden" name="action" value="apply_partial">
                     <input type="hidden" name="session_id" value="{{ pending.session_id }}">
-                    <input name="item_name" value="{{ pending.item_name }}" placeholder="item name">
-                    <input name="category" value="{{ pending.category }}" placeholder="category">
-                    <input name="remain_level" value="{{ pending.remain_level if pending.remain_level is not none else 0.5 }}" placeholder="remain level">
-                    <input name="note" placeholder="confirmation note">
-                    <button type="submit">Confirm Partial Change</button>
+                    <input name="item_name" value="{{ pending.item_name }}" placeholder="物品名称">
+                    <input name="category" value="{{ pending.category }}" placeholder="类别">
+                    <input name="remain_level" value="{{ pending.remain_level if pending.remain_level is not none else 0.5 }}" placeholder="余量">
+                    <input name="note" placeholder="确认备注">
+                    <button type="submit">确认局部变化</button>
                 </form>
                 <form class="inline" method="post" action="/confirm">
                     <input type="hidden" name="action" value="dismiss">
                     <input type="hidden" name="session_id" value="{{ pending.session_id }}">
-                    <input name="note" placeholder="dismiss note">
-                    <button type="submit">Dismiss</button>
+                    <input name="note" placeholder="驳回备注">
+                    <button type="submit">驳回</button>
                 </form>
             </div>
             {% else %}
-            <p>No pending confirmations.</p>
+            <p>暂无待确认项。</p>
             {% endfor %}
         </section>
 
         <section class="card">
-            <h2>Manual Correction</h2>
+            <h2>手动修正</h2>
             <form class="inline" method="post" action="/confirm">
                 <input type="hidden" name="action" value="manual_adjust">
-                <input name="item_name" placeholder="item name" required>
-                <input name="category" placeholder="category" value="unknown">
-                <input name="count_delta" placeholder="count delta, e.g. 1 or -1" required>
-                <input name="remain_level" placeholder="remain level, optional">
-                <button type="submit">Apply Manual Adjustment</button>
+                <input name="item_name" placeholder="物品名称" required>
+                <input name="category" placeholder="类别" value="unknown">
+                <input name="count_delta" placeholder="数量变化，例如 1 或 -1" required>
+                <input name="remain_level" placeholder="余量，可选">
+                <button type="submit">应用手动修正</button>
             </form>
         </section>
     </div>
