@@ -1,0 +1,9 @@
+{
+  "provider": "mock",
+  "endpoint": "https://example.invalid/v1/fine-grained-recognize",
+  "api_key": "",
+  "model_name": "generic-fine-grained-v1",
+  "timeout_ms": 15000,
+  "max_retries": 1,
+  "enable_base64_image": false
+}

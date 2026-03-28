@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(FRIDGE_USE_OPENCV "Enable OpenCV-based video decoding and JPG export" ON)
+option(FRIDGE_BUILD_CLOUD_CLASSIFIER "Build the independent cloud fine-grained recognizer skeleton" ON)
 
 if(FRIDGE_USE_OPENCV)
     find_package(OpenCV QUIET COMPONENTS core imgproc imgcodecs videoio)
@@ -52,3 +53,7 @@ add_executable(fridge_vision_tests
 target_link_libraries(fridge_vision_tests PRIVATE fridge_vision)
 
 add_test(NAME fridge_vision_tests COMMAND fridge_vision_tests)
+
+if(FRIDGE_BUILD_CLOUD_CLASSIFIER)
+    add_subdirectory(cloud_classifier)
+endif()
