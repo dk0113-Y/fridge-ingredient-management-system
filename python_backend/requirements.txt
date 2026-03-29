@@ -1,3 +1,0 @@
-# Add backend dependencies here, for example:
-# fastapi
-# sqlalchemy

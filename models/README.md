@@ -1,5 +1,14 @@
 # models
 
-此目录仅用于存放轻量部署模型、模型下载说明或模型版本说明。
+This directory stores deployment-ready model assets used by the C++ pipeline.
 
-不要提交大体积训练权重、原始训练产物或私有数据。
+## Current Contents
+
+- `best.pt`: the source YOLO PyTorch weights
+- `best.onnx`: the exported deployment asset for later C++ integration
+
+## Current Limit
+
+- the C++ repository can now detect and validate that the file exists
+- the current runtime still does not execute end-to-end inference yet
+- the next deployment step is to connect an ONNX inference backend in C++

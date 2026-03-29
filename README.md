@@ -1,77 +1,47 @@
 # Smart Fridge Ingredient Recognition and Inventory Management
 
-Project title: 冰箱食材识别与管理系统
-
-## Stage-1 Goal
-
-This repository currently focuses on the first competition milestone:
-
-1. Read a local video on the vision side.
-2. Detect a real fridge interaction event.
-3. Export a structured `event.json`.
-4. Ingest the event on the Python side.
-5. Update SQLite inventory records.
-6. Show inventory, recent events, pending confirmations, and manual correction on a local web page.
-
-The code is intentionally scoped to a minimal runnable closed loop. Real object classifiers, live camera streams, and embedded deployment hooks are left as explicit TODOs.
+This repository follows the all-C/C++ baseline defined in
+[`docs/system_final_design_cpp_only.md`](docs/system_final_design_cpp_only.md).
 
 ## Active Directories
 
 ```text
 .
-|-- cpp/                    # Stage-1 C/C++ vision pipeline
-|-- python/                 # Stage-1 Python backend and web UI
-|-- shared/                 # Shared protocol between C++ and Python
-|-- docs/                   # Architecture, API, DB, pipeline, development plan
-|-- configs/                # Stage-1 ROI and threshold config
+|-- cpp/                    # C++ modules, configs, tests, and main entry
+|   |-- configs/            # Runtime config used by the C++ pipeline
+|   |-- module_1...5        # Module directories from the final design
+|   `-- main.cpp            # Main control entry
+|-- python/
+|   |-- miniprogram/        # Existing mini program kept as-is
+|   `-- model_tools/        # Offline conversion helpers such as YOLO PT -> ONNX
+|-- docs/                   # Final design and retained implementation notes
 |-- data/
-|   |-- sessions/           # Per-run vision outputs grouped by session
-|   `-- runtime/            # Local runtime database files
-|-- video/                  # Local test videos
-|-- cpp_infer/              # Early placeholder kept for compatibility
-`-- python_backend/         # Early placeholder kept for compatibility
+|   |-- runtime/            # Runtime database and local state
+|   |-- sessions/           # Per-run debug outputs grouped by session
+|   `-- video/              # Local test videos
+|-- models/                 # YOLO model assets and notes
 ```
 
-## Collaboration Branch Model
+## What Is Implemented
 
-- `main`: stable demo branch
-- `dev`: daily integration branch
-- `feature/*`: task branches for each teammate
+- `cpp/`: stage-1 keyframe extraction, ROI motion analysis, event classification, and debug artifact output
+- `cpp/module_2_yolo_analysis/`: ONNX model-asset inspection, grayscale preprocessing, ONNX output decoding, box matching, and YOLO diff-analysis baseline
+- `cpp/module_3_fine_grained/`: C++ fine-grained recognition client skeleton with mock mode and provider-neutral config
+- `cpp/module_4_inventory/`: inventory rule engine, pending review flow, and manual update baseline
+- `cpp/module_5_local_service/`: local service facade for health, inventory, events, pending review, confirm, and manual update
+- `python/miniprogram/`: retained mini program frontend
+- `python/model_tools/`: offline support scripts for model export and related tooling
 
-## Recommended Work Split
+## Key Documents
 
-- Member A: vision event detection, ROI motion analysis, C/C++ inference path
-- Member B: SQLite inventory flow, web API, pending confirmations, local page
+- [`docs/system_final_design_cpp_only.md`](docs/system_final_design_cpp_only.md): final architecture baseline
+- [`docs/backend_api_cpp_only.md`](docs/backend_api_cpp_only.md): C++ local HTTP API baseline
+- [`docs/vision_pipeline.md`](docs/vision_pipeline.md): current C++ vision pipeline notes
 
-## Quick Start
+## Current Limits
 
-### C++ vision demo
-
-See [vision_pipeline.md](D:/AAA研电赛/code_0/docs/vision_pipeline.md).
-
-The stage-1 C++ target is under [CMakeLists.txt](D:/AAA研电赛/code_0/cpp/CMakeLists.txt). The core pipeline is:
-
-- `video_io`: local video or frame-sequence loading
-- `roi_motion`: motion summary inside the fridge ROI
-- `frame_selector`: before/after keyframe selection
-- `event_detector`: `no_change`, `put_in`, `take_out`, `partial_take_out_candidate`
-
-With OpenCV enabled, the demo reads a real local video file and writes debug images. Without OpenCV, the same pipeline can still be debugged with a local `.pgm` frame directory.
-
-### Python backend
-
-See [backend_api.md](D:/AAA研电赛/code_0/docs/backend_api.md).
-
-The backend reads `data/sessions/**/event.json`, writes SQLite state, and serves a local page with:
-
-- current inventory
-- recent events
-- pending confirmations
-- manual correction entry
-
-## TODO
-
-- [ ] Replace the null classifier with a real lightweight category model.
-- [ ] Replace file-based input with live camera stream input.
-- [ ] Add embedded deployment adapters for the board-side runtime.
-- [ ] Add richer event semantics for drawer state, multi-object scenes, and user confirmation strategy.
+- `models/best.onnx` is now tracked by module 2, and module 2 already covers preprocessing plus ONNX-output decoding, but the current C++ runtime still does not execute the ONNX graph itself
+- `models/best.pt` is retained as the original training/export weight file
+- real YOLO inference still needs an ONNX Runtime or another C++ inference backend
+- module 4 is still an in-memory inventory baseline and has not been switched to SQLite yet
+- module 5 is still a local service facade and has not been connected to a real HTTP server yet
