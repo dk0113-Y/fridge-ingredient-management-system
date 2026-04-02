@@ -1,0 +1,118 @@
+{
+  "session_id": "live_20260402_160820_CAPTURE_fullview_30fps_trial01",
+  "timestamp": "2026-04-02T08:08:20Z",
+  "event_type": "partial_take_out_candidate",
+  "roi_id": "main_compartment_live",
+  "confidence": 0.885,
+  "before_frame": "/home/dk/桌面/smartHome/code_1/data/test_sessions/module12_realtime_live/live_20260402_160820_CAPTURE_fullview_30fps_trial01/stage1/before.jpg",
+  "after_frame": "/home/dk/桌面/smartHome/code_1/data/test_sessions/module12_realtime_live/live_20260402_160820_CAPTURE_fullview_30fps_trial01/stage1/after.jpg",
+  "change_regions": [
+    {
+      "x": 219,
+      "y": 0,
+      "width": 421,
+      "height": 389,
+      "score": 0.235
+    },
+    {
+      "x": 270,
+      "y": 370,
+      "width": 113,
+      "height": 16,
+      "score": 0.002
+    },
+    {
+      "x": 451,
+      "y": 81,
+      "width": 13,
+      "height": 13,
+      "score": 0.000
+    },
+    {
+      "x": 280,
+      "y": 297,
+      "width": 13,
+      "height": 7,
+      "score": 0.000
+    },
+    {
+      "x": 286,
+      "y": 287,
+      "width": 25,
+      "height": 17,
+      "score": 0.000
+    },
+    {
+      "x": 452,
+      "y": 68,
+      "width": 8,
+      "height": 11,
+      "score": 0.000
+    },
+    {
+      "x": 270,
+      "y": 296,
+      "width": 15,
+      "height": 8,
+      "score": 0.000
+    },
+    {
+      "x": 249,
+      "y": 205,
+      "width": 14,
+      "height": 6,
+      "score": 0.000
+    },
+    {
+      "x": 259,
+      "y": 345,
+      "width": 22,
+      "height": 4,
+      "score": 0.000
+    },
+    {
+      "x": 435,
+      "y": 100,
+      "width": 5,
+      "height": 12,
+      "score": 0.000
+    },
+    {
+      "x": 240,
+      "y": 206,
+      "width": 12,
+      "height": 7,
+      "score": 0.000
+    },
+    {
+      "x": 436,
+      "y": 145,
+      "width": 5,
+      "height": 13,
+      "score": 0.000
+    },
+    {
+      "x": 235,
+      "y": 268,
+      "width": 9,
+      "height": 7,
+      "score": 0.000
+    },
+    {
+      "x": 237,
+      "y": 315,
+      "width": 6,
+      "height": 10,
+      "score": 0.000
+    }
+  ],
+  "objects": [
+    {
+      "category": "unknown",
+      "name": "unknown",
+      "count_delta": 0,
+      "remain_level": 0.500
+    }
+  ],
+  "need_user_confirm": true
+}

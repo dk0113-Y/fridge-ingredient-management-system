@@ -1,0 +1,174 @@
+{
+  "session_id": "live_20260402_160831_CAPTURE_fullview_30fps_trial01",
+  "timestamp": "2026-04-02T08:08:31Z",
+  "event_type": "no_change",
+  "roi_id": "main_compartment_live",
+  "confidence": 0.609,
+  "before_frame": "/home/dk/桌面/smartHome/code_1/data/test_sessions/module12_realtime_live/live_20260402_160831_CAPTURE_fullview_30fps_trial01/stage1/before.jpg",
+  "after_frame": "/home/dk/桌面/smartHome/code_1/data/test_sessions/module12_realtime_live/live_20260402_160831_CAPTURE_fullview_30fps_trial01/stage1/after.jpg",
+  "change_regions": [
+    {
+      "x": 220,
+      "y": 149,
+      "width": 187,
+      "height": 142,
+      "score": 0.058
+    },
+    {
+      "x": 405,
+      "y": 281,
+      "width": 131,
+      "height": 60,
+      "score": 0.007
+    },
+    {
+      "x": 452,
+      "y": 197,
+      "width": 59,
+      "height": 28,
+      "score": 0.001
+    },
+    {
+      "x": 415,
+      "y": 207,
+      "width": 40,
+      "height": 25,
+      "score": 0.001
+    },
+    {
+      "x": 422,
+      "y": 227,
+      "width": 49,
+      "height": 32,
+      "score": 0.001
+    },
+    {
+      "x": 486,
+      "y": 214,
+      "width": 16,
+      "height": 13,
+      "score": 0.000
+    },
+    {
+      "x": 409,
+      "y": 353,
+      "width": 46,
+      "height": 5,
+      "score": 0.000
+    },
+    {
+      "x": 415,
+      "y": 246,
+      "width": 25,
+      "height": 9,
+      "score": 0.000
+    },
+    {
+      "x": 520,
+      "y": 296,
+      "width": 8,
+      "height": 17,
+      "score": 0.000
+    },
+    {
+      "x": 406,
+      "y": 322,
+      "width": 17,
+      "height": 6,
+      "score": 0.000
+    },
+    {
+      "x": 424,
+      "y": 312,
+      "width": 11,
+      "height": 14,
+      "score": 0.000
+    },
+    {
+      "x": 513,
+      "y": 233,
+      "width": 10,
+      "height": 14,
+      "score": 0.000
+    },
+    {
+      "x": 364,
+      "y": 197,
+      "width": 6,
+      "height": 22,
+      "score": 0.000
+    },
+    {
+      "x": 472,
+      "y": 246,
+      "width": 5,
+      "height": 18,
+      "score": 0.000
+    },
+    {
+      "x": 528,
+      "y": 226,
+      "width": 9,
+      "height": 10,
+      "score": 0.000
+    },
+    {
+      "x": 533,
+      "y": 295,
+      "width": 6,
+      "height": 13,
+      "score": 0.000
+    },
+    {
+      "x": 473,
+      "y": 233,
+      "width": 6,
+      "height": 13,
+      "score": 0.000
+    },
+    {
+      "x": 466,
+      "y": 209,
+      "width": 12,
+      "height": 6,
+      "score": 0.000
+    },
+    {
+      "x": 484,
+      "y": 243,
+      "width": 4,
+      "height": 15,
+      "score": 0.000
+    },
+    {
+      "x": 524,
+      "y": 231,
+      "width": 6,
+      "height": 11,
+      "score": 0.000
+    },
+    {
+      "x": 540,
+      "y": 304,
+      "width": 13,
+      "height": 8,
+      "score": 0.000
+    },
+    {
+      "x": 479,
+      "y": 268,
+      "width": 10,
+      "height": 5,
+      "score": 0.000
+    }
+  ],
+  "objects": [
+    {
+      "category": "unknown",
+      "name": "unknown",
+      "count_delta": 0,
+      "remain_level": 0.000
+    }
+  ],
+  "need_user_confirm": false
+}

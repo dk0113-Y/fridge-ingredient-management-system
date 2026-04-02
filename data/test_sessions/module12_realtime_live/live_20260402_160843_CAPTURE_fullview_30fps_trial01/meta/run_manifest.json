@@ -1,0 +1,19 @@
+{
+  "session_id": "live_20260402_160843_CAPTURE_fullview_30fps_trial01",
+  "case_id": "CAPTURE_fullview_30fps_trial01",
+  "mode": "live_camera",
+  "pipeline_mode": "capture_only",
+  "preview_url": "http://192.168.1.109:8080/live.mjpeg",
+  "status_url": "http://192.168.1.109:8080/status.json",
+  "final_event_type": "capture_recorded",
+  "fallback_used": false,
+  "fallback_reason": "",
+  "paths": {
+    "session_dir": "/home/dk/桌面/smartHome/code_1/data/test_sessions/module12_realtime_live/live_20260402_160843_CAPTURE_fullview_30fps_trial01",
+    "preview": "/home/dk/桌面/smartHome/code_1/data/test_sessions/module12_realtime_live/live_20260402_160843_CAPTURE_fullview_30fps_trial01/preview/latest_preview.jpg",
+    "stage1_event": "/home/dk/桌面/smartHome/code_1/data/test_sessions/module12_realtime_live/live_20260402_160843_CAPTURE_fullview_30fps_trial01/stage1/stage1_event.json",
+    "stage2_result": "/home/dk/桌面/smartHome/code_1/data/test_sessions/module12_realtime_live/live_20260402_160843_CAPTURE_fullview_30fps_trial01/stage2/module2_result.json",
+    "final_event": "/home/dk/桌面/smartHome/code_1/data/test_sessions/module12_realtime_live/live_20260402_160843_CAPTURE_fullview_30fps_trial01/final/event.json",
+    "test_report": "/home/dk/桌面/smartHome/code_1/data/test_sessions/module12_realtime_live/live_20260402_160843_CAPTURE_fullview_30fps_trial01/final/test_report.json"
+  }
+}

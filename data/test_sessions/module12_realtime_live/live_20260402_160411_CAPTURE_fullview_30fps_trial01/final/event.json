@@ -1,0 +1,90 @@
+{
+  "session_id": "live_20260402_160411_CAPTURE_fullview_30fps_trial01",
+  "timestamp": "2026-04-02T08:04:11Z",
+  "event_type": "no_change",
+  "roi_id": "main_compartment_live",
+  "confidence": 0.665,
+  "before_frame": "/home/dk/桌面/smartHome/code_1/data/test_sessions/module12_realtime_live/live_20260402_160411_CAPTURE_fullview_30fps_trial01/stage1/before.jpg",
+  "after_frame": "/home/dk/桌面/smartHome/code_1/data/test_sessions/module12_realtime_live/live_20260402_160411_CAPTURE_fullview_30fps_trial01/stage1/after.jpg",
+  "change_regions": [
+    {
+      "x": 246,
+      "y": 183,
+      "width": 199,
+      "height": 191,
+      "score": 0.055
+    },
+    {
+      "x": 562,
+      "y": 0,
+      "width": 78,
+      "height": 18,
+      "score": 0.003
+    },
+    {
+      "x": 318,
+      "y": 295,
+      "width": 32,
+      "height": 9,
+      "score": 0.000
+    },
+    {
+      "x": 281,
+      "y": 332,
+      "width": 10,
+      "height": 21,
+      "score": 0.000
+    },
+    {
+      "x": 306,
+      "y": 338,
+      "width": 9,
+      "height": 11,
+      "score": 0.000
+    },
+    {
+      "x": 422,
+      "y": 284,
+      "width": 14,
+      "height": 8,
+      "score": 0.000
+    },
+    {
+      "x": 413,
+      "y": 299,
+      "width": 8,
+      "height": 9,
+      "score": 0.000
+    },
+    {
+      "x": 370,
+      "y": 337,
+      "width": 11,
+      "height": 7,
+      "score": 0.000
+    },
+    {
+      "x": 549,
+      "y": 0,
+      "width": 8,
+      "height": 9,
+      "score": 0.000
+    },
+    {
+      "x": 430,
+      "y": 270,
+      "width": 4,
+      "height": 13,
+      "score": 0.000
+    }
+  ],
+  "objects": [
+    {
+      "category": "unknown",
+      "name": "unknown",
+      "count_delta": 0,
+      "remain_level": 0.000
+    }
+  ],
+  "need_user_confirm": false
+}

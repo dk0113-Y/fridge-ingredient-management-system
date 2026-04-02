@@ -1,0 +1,104 @@
+{
+  "session_id": "live_20260402_160838_CAPTURE_fullview_30fps_trial01",
+  "timestamp": "2026-04-02T08:08:38Z",
+  "event_type": "take_out",
+  "roi_id": "main_compartment_live",
+  "confidence": 0.776,
+  "before_frame": "/home/dk/桌面/smartHome/code_1/data/test_sessions/module12_realtime_live/live_20260402_160838_CAPTURE_fullview_30fps_trial01/stage1/before.jpg",
+  "after_frame": "/home/dk/桌面/smartHome/code_1/data/test_sessions/module12_realtime_live/live_20260402_160838_CAPTURE_fullview_30fps_trial01/stage1/after.jpg",
+  "change_regions": [
+    {
+      "x": 447,
+      "y": 0,
+      "width": 193,
+      "height": 181,
+      "score": 0.087
+    },
+    {
+      "x": 207,
+      "y": 208,
+      "width": 182,
+      "height": 201,
+      "score": 0.060
+    },
+    {
+      "x": 304,
+      "y": 208,
+      "width": 28,
+      "height": 72,
+      "score": 0.003
+    },
+    {
+      "x": 280,
+      "y": 378,
+      "width": 62,
+      "height": 14,
+      "score": 0.002
+    },
+    {
+      "x": 294,
+      "y": 208,
+      "width": 7,
+      "height": 19,
+      "score": 0.000
+    },
+    {
+      "x": 299,
+      "y": 223,
+      "width": 7,
+      "height": 11,
+      "score": 0.000
+    },
+    {
+      "x": 267,
+      "y": 394,
+      "width": 10,
+      "height": 16,
+      "score": 0.000
+    },
+    {
+      "x": 464,
+      "y": 53,
+      "width": 13,
+      "height": 7,
+      "score": 0.000
+    },
+    {
+      "x": 257,
+      "y": 401,
+      "width": 9,
+      "height": 9,
+      "score": 0.000
+    },
+    {
+      "x": 465,
+      "y": 60,
+      "width": 7,
+      "height": 11,
+      "score": 0.000
+    },
+    {
+      "x": 480,
+      "y": 48,
+      "width": 7,
+      "height": 6,
+      "score": 0.000
+    },
+    {
+      "x": 217,
+      "y": 294,
+      "width": 5,
+      "height": 18,
+      "score": 0.000
+    }
+  ],
+  "objects": [
+    {
+      "category": "unknown",
+      "name": "unknown",
+      "count_delta": -1,
+      "remain_level": 0.000
+    }
+  ],
+  "need_user_confirm": false
+}

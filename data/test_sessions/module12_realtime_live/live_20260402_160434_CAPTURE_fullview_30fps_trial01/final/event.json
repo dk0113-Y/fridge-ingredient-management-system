@@ -1,0 +1,48 @@
+{
+  "session_id": "live_20260402_160434_CAPTURE_fullview_30fps_trial01",
+  "timestamp": "2026-04-02T08:04:34Z",
+  "event_type": "no_change",
+  "roi_id": "main_compartment_live",
+  "confidence": 0.612,
+  "before_frame": "/home/dk/桌面/smartHome/code_1/data/test_sessions/module12_realtime_live/live_20260402_160434_CAPTURE_fullview_30fps_trial01/stage1/before.jpg",
+  "after_frame": "/home/dk/桌面/smartHome/code_1/data/test_sessions/module12_realtime_live/live_20260402_160434_CAPTURE_fullview_30fps_trial01/stage1/after.jpg",
+  "change_regions": [
+    {
+      "x": 279,
+      "y": 282,
+      "width": 184,
+      "height": 157,
+      "score": 0.074
+    },
+    {
+      "x": 355,
+      "y": 239,
+      "width": 61,
+      "height": 27,
+      "score": 0.002
+    },
+    {
+      "x": 295,
+      "y": 276,
+      "width": 55,
+      "height": 14,
+      "score": 0.001
+    },
+    {
+      "x": 302,
+      "y": 427,
+      "width": 9,
+      "height": 9,
+      "score": 0.000
+    }
+  ],
+  "objects": [
+    {
+      "category": "unknown",
+      "name": "unknown",
+      "count_delta": 0,
+      "remain_level": 0.000
+    }
+  ],
+  "need_user_confirm": false
+}

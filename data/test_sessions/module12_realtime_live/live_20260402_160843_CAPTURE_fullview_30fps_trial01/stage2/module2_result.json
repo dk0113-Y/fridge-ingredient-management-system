@@ -1,0 +1,13 @@
+{
+  "session_id": "live_20260402_160843_CAPTURE_fullview_30fps_trial01",
+  "event_type": "not_evaluated",
+  "success": false,
+  "stage2_skipped": true,
+  "module2_mode": "mock",
+  "matched_pairs": [],
+  "new_boxes": [],
+  "disappeared_boxes": [],
+  "partial_candidates": [],
+  "crop_requests": [],
+  "review_reason": "capture_only: module2 skipped"
+}
