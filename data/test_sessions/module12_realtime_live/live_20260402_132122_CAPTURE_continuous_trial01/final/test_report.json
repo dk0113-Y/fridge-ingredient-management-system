@@ -1,0 +1,17 @@
+{
+  "session_id": "live_20260402_132122_CAPTURE_continuous_trial01",
+  "case_id": "CAPTURE_continuous_trial01",
+  "mode": "live_camera",
+  "pipeline_mode": "capture_only",
+  "module2_mode": "mock",
+  "expected_event_type": "not_evaluated",
+  "actual_stage1_event_type": "take_out",
+  "actual_stage2_event_type": "skipped",
+  "final_event_type": "capture_recorded",
+  "capture_valid": true,
+  "stage2_skipped": true,
+  "pass": true,
+  "fallback_used": false,
+  "fallback_reason": "",
+  "notes": "YOLO backend is not part of this run. This report validates only live trigger stability, keyframe capture quality, and session artifact completeness."
+}

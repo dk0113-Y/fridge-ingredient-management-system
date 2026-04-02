@@ -74,6 +74,10 @@ bool load_local_service_config(
             config.bind_host = value;
             continue;
         }
+        if (key == "public_host") {
+            config.public_host = value;
+            continue;
+        }
         if (key == "port") {
             if (!parse_int_value(value, config.port)) {
                 error_message = "Invalid port at line " + std::to_string(line_number);

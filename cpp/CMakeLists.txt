@@ -113,6 +113,15 @@ add_executable(fridge_debug_module_5
 target_link_libraries(fridge_debug_module_5 PRIVATE fridge_local_service)
 add_test(NAME fridge_debug_module_5 COMMAND fridge_debug_module_5)
 
+add_executable(fridge_module12_realtime_live
+    tests/module12_realtime_live/main.cpp
+    tests/module12_realtime_live/realtime_harness.cpp
+)
+target_link_libraries(fridge_module12_realtime_live PRIVATE fridge_vision fridge_local_service)
+if(WIN32)
+    target_link_libraries(fridge_module12_realtime_live PRIVATE ws2_32)
+endif()
+
 if(FRIDGE_BUILD_CLOUD_CLASSIFIER)
     add_executable(fridge_debug_module_3
         tests/debug_module_3_fine_grained.cpp
