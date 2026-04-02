@@ -9,9 +9,31 @@ It is not the final product version of module 5. The goal is to validate a live 
 
 1. open one camera device
 2. publish live MJPEG preview
-3. run module 1 on the shared realtime frame stream
-4. trigger module 2 only after valid `before` and `after` are produced
-5. persist every event into an isolated session directory
+3. maintain one stable baseline state for module 1 on the shared realtime frame stream
+4. open an event only when the scene leaves that baseline and then settles into a new stable state
+5. trigger module 2 only after valid `before` and `after` stable states are produced
+6. persist every event into an isolated session directory
+
+## Capture Strategy
+
+The live harness no longer treats adjacent-frame motion as the final authority for keyframe extraction.
+The current capture logic is:
+
+1. wait for an initial stable baseline after startup
+2. keep refreshing that baseline while the scene stays stable
+3. open a disturbance window only when either:
+   - adjacent-frame motion crosses the motion threshold, or
+   - the current frame has drifted far enough from the stable baseline
+4. suppress global exposure/brightness shifts with ROI-wide brightness compensation
+5. emit a session only after the scene becomes stable again
+6. use `baseline_frame -> settled_frame` as `before -> after`
+
+This means the harness is now optimized for:
+
+- long idle periods after boot
+- continuous `put in / take out / reorganize` actions
+- non-hand interactions such as rope-assisted pulls
+- clean `before` and `after` frames instead of motion-midpoint snapshots
 
 ## Dependencies
 
@@ -77,10 +99,13 @@ cpp/tests/module12_realtime_live/scripts/run_live_module12_test.sh \
 
 In `capture_only` mode:
 
-- module 1 still drives the trigger and keyframe selection
+- module 1 now drives a stable-state capture machine instead of the older adjacent-frame event window
+- `before.jpg`, `after.jpg`, and `overlay.jpg` are now saved as color camera snapshots, while the algorithm still runs on grayscale internally
 - `before.jpg`, `after.jpg`, `overlay.jpg`, and `stage1_debug.json` remain the primary acceptance artifacts
 - module 2 JSON is written as `stage2_skipped`
 - browser status shows `capture_recorded` instead of pretending the semantic result is authoritative
+- `test_report.json` now records `peak_interframe_ratio`, `peak_baseline_change_ratio`, `final_change_ratio`, and stable-run lengths for the emitted session
+- transient disturbances that almost return to the original state are filtered out instead of being kept as weak sessions
 
 Optional ROI override:
 
@@ -162,6 +187,35 @@ cpp/tests/module12_realtime_live/manifests/latest_run.json
 - recommended when the real YOLO backend is not connected
 - validates only trigger stability, keyframe capture quality, and session completeness
 - semantic labels in `stage1_event.json` are treated as debug output, not as pass/fail truth
+- the session is emitted only after `stable baseline -> disturbance -> stable final state`
+
+## Continuous Capture SOP
+
+For continuous capture validation, keep the process running and do not stop after the first session:
+
+```bash
+cpp/tests/module12_realtime_live/scripts/run_live_module12_test.sh \
+  --case-id CAPTURE_continuous_trial01 \
+  --device /dev/video0 \
+  --capture-only \
+  --stop-after-events 0 \
+  --duration-seconds 0 \
+  --roi 220,140,420,240
+```
+
+Recommended operator rhythm:
+
+- leave the ROI stable for 1 to 2 seconds before each action
+- finish the action and move the hand or rope out of the ROI
+- leave the final state stable for 1 to 2 seconds before the next action
+
+Acceptance criteria for each emitted session:
+
+- `before.jpg` is the clean pre-action stable state
+- `after.jpg` is the clean post-action stable state
+- `overlay.jpg` covers the real changed area instead of only the transient mover
+- `stage1_debug.json` shows a non-trivial `final_change_ratio`
+- `final/test_report.json` reports `capture_recorded` with `capture_valid=true`
 
 ## LAN Notes
 

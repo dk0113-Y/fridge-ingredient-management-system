@@ -23,6 +23,7 @@ add_library(fridge_vision
     module_1_event_capture/src/video_io.cpp
     module_1_event_capture/src/roi_motion.cpp
     module_1_event_capture/src/frame_selector.cpp
+    module_1_event_capture/src/stable_state_capture.cpp
     module_1_event_capture/src/runtime_config.cpp
     module_2_yolo_analysis/src/event_detector.cpp
     module_2_yolo_analysis/src/debug_report.cpp

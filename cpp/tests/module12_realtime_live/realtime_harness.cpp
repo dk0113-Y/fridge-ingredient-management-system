@@ -50,6 +50,7 @@
 #include "frame_selector.hpp"
 #include "runtime_config.hpp"
 #include "service_config.hpp"
+#include "stable_state_capture.hpp"
 #include "video_io.hpp"
 #include "yolo_runtime.hpp"
 
@@ -73,6 +74,17 @@ struct FramePacket {
 
     bool empty() const {
         return gray_frame.empty();
+    }
+};
+
+struct ColorFrame {
+    int width = 0;
+    int height = 0;
+    int index = 0;
+    std::vector<std::uint8_t> pixels;
+
+    bool empty() const {
+        return width <= 0 || height <= 0 || pixels.size() < static_cast<std::size_t>(width * height * 3);
     }
 };
 
@@ -181,6 +193,127 @@ std::string path_to_utf8_string(const std::filesystem::path& path) {
     return wide_to_utf8(path.generic_wstring());
 #else
     return path.generic_string();
+#endif
+}
+
+ColorFrame promote_gray_to_color(const GrayFrame& frame) {
+    ColorFrame color_frame;
+    if (frame.empty()) {
+        return color_frame;
+    }
+
+    color_frame.width = frame.width;
+    color_frame.height = frame.height;
+    color_frame.index = frame.index;
+    color_frame.pixels.resize(static_cast<std::size_t>(frame.width * frame.height * 3));
+    for (std::size_t pixel_index = 0; pixel_index < frame.pixels.size(); ++pixel_index) {
+        const std::uint8_t value = frame.pixels[pixel_index];
+        const std::size_t base = pixel_index * 3;
+        color_frame.pixels[base] = value;
+        color_frame.pixels[base + 1] = value;
+        color_frame.pixels[base + 2] = value;
+    }
+    return color_frame;
+}
+
+ColorFrame decode_color_frame(const FramePacket& packet) {
+    if (packet.gray_frame.empty()) {
+        return {};
+    }
+
+#ifdef FRIDGE_USE_OPENCV
+    if (!packet.jpeg_bytes.empty()) {
+        const cv::Mat encoded(1, static_cast<int>(packet.jpeg_bytes.size()), CV_8UC1, const_cast<std::uint8_t*>(packet.jpeg_bytes.data()));
+        const cv::Mat decoded = cv::imdecode(encoded, cv::IMREAD_COLOR);
+        if (!decoded.empty()) {
+            ColorFrame color_frame;
+            color_frame.width = decoded.cols;
+            color_frame.height = decoded.rows;
+            color_frame.index = packet.sequence;
+            color_frame.pixels.assign(decoded.datastart, decoded.dataend);
+            return color_frame;
+        }
+    }
+#endif
+
+    return promote_gray_to_color(packet.gray_frame);
+}
+
+bool write_color_debug_image(const ColorFrame& frame, const std::filesystem::path& path, std::string& error_message) {
+    if (frame.empty()) {
+        error_message = "Cannot write an empty color frame.";
+        return false;
+    }
+
+    std::filesystem::create_directories(path.parent_path());
+
+#ifdef FRIDGE_USE_OPENCV
+    cv::Mat image(frame.height, frame.width, CV_8UC3, const_cast<std::uint8_t*>(frame.pixels.data()));
+    const std::string extension = path.has_extension() ? path.extension().string() : ".jpg";
+    std::vector<std::uint8_t> encoded_bytes;
+    if (!cv::imencode(extension, image, encoded_bytes)) {
+        error_message = "Failed to encode color image: " + path_to_utf8_string(path);
+        return false;
+    }
+
+    std::ofstream output(path, std::ios::binary);
+    if (!output) {
+        error_message = "Failed to open output file: " + path_to_utf8_string(path);
+        return false;
+    }
+
+    output.write(reinterpret_cast<const char*>(encoded_bytes.data()), static_cast<std::streamsize>(encoded_bytes.size()));
+    if (!output) {
+        error_message = "Failed to write encoded image: " + path_to_utf8_string(path);
+        return false;
+    }
+
+    return true;
+#else
+    GrayFrame grayscale;
+    grayscale.width = frame.width;
+    grayscale.height = frame.height;
+    grayscale.index = frame.index;
+    grayscale.pixels.resize(static_cast<std::size_t>(frame.width * frame.height));
+    for (std::size_t pixel_index = 0; pixel_index < grayscale.pixels.size(); ++pixel_index) {
+        grayscale.pixels[pixel_index] = frame.pixels[pixel_index * 3];
+    }
+    return write_debug_image(grayscale, path, error_message);
+#endif
+}
+
+ColorFrame build_overlay_color_frame(
+    const ColorFrame& after_frame,
+    const BoundingBox& roi,
+    const std::vector<ChangeRegion>& change_regions
+) {
+    if (after_frame.empty()) {
+        return {};
+    }
+
+#ifdef FRIDGE_USE_OPENCV
+    ColorFrame overlay = after_frame;
+    cv::Mat image(overlay.height, overlay.width, CV_8UC3, overlay.pixels.data());
+    const cv::Scalar roi_color(0, 255, 0);
+    const cv::Scalar region_color(0, 0, 255);
+
+    if (roi.width > 0 && roi.height > 0 &&
+        !(roi.x == 0 && roi.y == 0 && roi.width == after_frame.width && roi.height == after_frame.height)) {
+        cv::rectangle(image, cv::Rect(roi.x, roi.y, roi.width, roi.height), roi_color, 2);
+    }
+
+    for (const auto& region : change_regions) {
+        cv::rectangle(
+            image,
+            cv::Rect(region.box.x, region.box.y, region.box.width, region.box.height),
+            region_color,
+            2
+        );
+    }
+
+    return overlay;
+#else
+    return after_frame;
 #endif
 }
 
@@ -294,7 +427,8 @@ std::string build_capture_only_report_json(
     const std::string& session_id,
     const std::string& case_id,
     Module2Mode mode,
-    const EventResult& stage1_event
+    const EventResult& stage1_event,
+    const StableCaptureEvent& capture_event
 );
 std::string build_test_report_json(
     const std::string& session_id,
@@ -703,7 +837,8 @@ void close_socket_handle(SocketHandle socket_handle) {
 std::string build_placeholder_latest_event_json() {
     return "{\n"
            "  \"status\": \"waiting\",\n"
-           "  \"message\": \"no event captured yet\"\n"
+           "  \"capture_strategy\": \"stable_state_transition\",\n"
+           "  \"message\": \"waiting for an initial stable baseline before the first event\"\n"
            "}\n";
 }
 
@@ -863,6 +998,7 @@ std::string build_live_capture_meta_json(
            << "  \"preview_url\": \"" << escape_json(preview_url) << "\",\n"
            << "  \"start_time\": \"" << escape_json(start_time) << "\",\n"
            << "  \"pipeline_mode\": \"" << escape_json(pipeline_mode_string(options)) << "\",\n"
+           << "  \"capture_strategy\": \"stable_state_transition\",\n"
            << "  \"module2_mode\": \"" << to_string(options.module2_mode) << "\"\n"
            << "}\n";
     return output.str();
@@ -872,7 +1008,8 @@ std::string build_capture_only_report_json(
     const std::string& session_id,
     const std::string& case_id,
     Module2Mode mode,
-    const EventResult& stage1_event
+    const EventResult& stage1_event,
+    const StableCaptureEvent& capture_event
 ) {
     std::ostringstream output;
     output << "{\n"
@@ -880,17 +1017,27 @@ std::string build_capture_only_report_json(
            << "  \"case_id\": \"" << escape_json(case_id) << "\",\n"
            << "  \"mode\": \"live_camera\",\n"
            << "  \"pipeline_mode\": \"capture_only\",\n"
+           << "  \"capture_strategy\": \"stable_state_transition\",\n"
            << "  \"module2_mode\": \"" << to_string(mode) << "\",\n"
            << "  \"expected_event_type\": \"not_evaluated\",\n"
            << "  \"actual_stage1_event_type\": \"" << escape_json(to_string(stage1_event.event_type)) << "\",\n"
-           << "  \"actual_stage2_event_type\": \"skipped\",\n"
-           << "  \"final_event_type\": \"capture_recorded\",\n"
-           << "  \"capture_valid\": true,\n"
-           << "  \"stage2_skipped\": true,\n"
-           << "  \"pass\": true,\n"
-           << "  \"fallback_used\": false,\n"
-           << "  \"fallback_reason\": \"\",\n"
-           << "  \"notes\": \"YOLO backend is not part of this run. This report validates only live trigger stability, keyframe capture quality, and session artifact completeness.\"\n"
+            << "  \"actual_stage2_event_type\": \"skipped\",\n"
+            << "  \"final_event_type\": \"capture_recorded\",\n"
+            << "  \"capture_valid\": true,\n"
+            << "  \"stage2_skipped\": true,\n"
+           << "  \"event_frame_count\": " << capture_event.total_frame_count << ",\n"
+           << "  \"peak_interframe_ratio\": " << std::fixed << std::setprecision(4)
+           << capture_event.peak_interframe_ratio << ",\n"
+           << "  \"peak_baseline_change_ratio\": " << std::fixed << std::setprecision(4)
+           << capture_event.peak_baseline_ratio << ",\n"
+           << "  \"final_change_ratio\": " << std::fixed << std::setprecision(4)
+           << capture_event.selected_frames.final_change_ratio << ",\n"
+           << "  \"stable_before_run_length\": " << capture_event.selected_frames.stable_before_run_length << ",\n"
+           << "  \"stable_after_run_length\": " << capture_event.selected_frames.stable_after_run_length << ",\n"
+            << "  \"pass\": true,\n"
+            << "  \"fallback_used\": false,\n"
+            << "  \"fallback_reason\": \"\",\n"
+           << "  \"notes\": \"YOLO backend is not part of this run. The session is emitted only after a stable baseline, a sustained disturbance, and a re-stabilized final state are observed.\"\n"
            << "}\n";
     return output.str();
 }
@@ -1483,6 +1630,8 @@ private:
     std::string build_status_json() const;
     std::string build_latest_event_json() const;
     std::string build_index_html() const;
+    void remember_frame_packet(const FramePacket& packet);
+    std::optional<FramePacket> find_frame_packet(int sequence) const;
     void processing_loop();
     Module2Execution run_module2(
         const std::string& session_id,
@@ -1497,7 +1646,7 @@ private:
         const GrayFrame& after_frame,
         std::string& error_message
     ) const;
-    void process_event_window(const std::vector<FramePacket>& packets);
+    void process_event_window(const StableCaptureEvent& capture_event);
 
     LiveHarnessOptions options_;
     std::filesystem::path repo_root_;
@@ -1521,6 +1670,8 @@ private:
     int processed_event_count_ = 0;
     std::atomic<bool> stop_requested_{false};
     SharedFrameBuffer frame_buffer_;
+    std::deque<FramePacket> frame_history_;
+    std::size_t frame_history_limit_ = 256;
     SessionArtifactWriter artifact_writer_;
     CameraCaptureThread capture_thread_;
     std::unique_ptr<LivePreviewPublisher> preview_publisher_;
@@ -1532,6 +1683,22 @@ Module12RealtimeHarness::Impl::Impl(LiveHarnessOptions options)
       repo_root_(resolve_repo_root()),
       artifact_writer_(options_.output_root, options_.latest_run_manifest_path),
       capture_thread_(options_, frame_buffer_) {}
+
+void Module12RealtimeHarness::Impl::remember_frame_packet(const FramePacket& packet) {
+    frame_history_.push_back(packet);
+    while (frame_history_.size() > frame_history_limit_) {
+        frame_history_.pop_front();
+    }
+}
+
+std::optional<FramePacket> Module12RealtimeHarness::Impl::find_frame_packet(int sequence) const {
+    for (auto it = frame_history_.rbegin(); it != frame_history_.rend(); ++it) {
+        if (it->sequence == sequence) {
+            return *it;
+        }
+    }
+    return std::nullopt;
+}
 
 bool Module12RealtimeHarness::Impl::load_configs(std::string& error_message) {
     if (!load_pipeline_config(options_.module1_config_path, pipeline_config_, error_message)) {
@@ -1564,6 +1731,15 @@ bool Module12RealtimeHarness::Impl::load_configs(std::string& error_message) {
         options_.mock_coarse_class = default_mock_class_for_case(options_.case_id);
     }
 
+    frame_history_limit_ = std::max<std::size_t>(
+        64,
+        pipeline_config_.frame_selector_config.max_disturbance_frames +
+            pipeline_config_.frame_selector_config.baseline_warmup_frames +
+            pipeline_config_.frame_selector_config.settle_run_frames +
+            pipeline_config_.frame_selector_config.post_event_cooldown_frames +
+            16
+    );
+
     public_host_ = resolve_public_host(options_.public_host, options_.bind_host);
     preview_url_ = make_preview_url(public_host_, options_.port);
     status_url_ = make_status_url(public_host_, options_.port);
@@ -1578,6 +1754,7 @@ std::string Module12RealtimeHarness::Impl::build_status_json() const {
            << "  \"status\": \"" << (stop_requested_.load() ? "stopping" : "running") << "\",\n"
            << "  \"mode\": \"live_camera\",\n"
            << "  \"pipeline_mode\": \"" << escape_json(pipeline_mode_string(options_)) << "\",\n"
+           << "  \"capture_strategy\": \"stable_state_transition\",\n"
            << "  \"device\": \"" << escape_json(options_.device) << "\",\n"
            << "  \"preview_url\": \"" << escape_json(preview_url_) << "\",\n"
            << "  \"last_session_id\": \"" << escape_json(last_session_id_) << "\",\n"
@@ -1698,20 +1875,11 @@ void Module12RealtimeHarness::Impl::request_stop() {
 }
 
 void Module12RealtimeHarness::Impl::processing_loop() {
-    std::deque<FramePacket> history_frames;
-    std::vector<FramePacket> event_frames;
-    FramePacket previous_frame;
-    bool has_previous = false;
-    bool event_active = false;
-    int stable_frame_count = 0;
-    int cooldown_remaining = 0;
-
-    auto trim_history = [&](std::deque<FramePacket>& history) {
-        const std::size_t limit = static_cast<std::size_t>(std::max(2, options_.pre_event_frame_count));
-        while (history.size() > limit) {
-            history.pop_front();
-        }
-    };
+    StableStateCapture capture_state_machine(
+        pipeline_config_.motion_config,
+        pipeline_config_.frame_selector_config
+    );
+    bool baseline_announced = false;
 
     while (!stop_requested_.load()) {
         FramePacket current_frame;
@@ -1722,75 +1890,22 @@ void Module12RealtimeHarness::Impl::processing_loop() {
             continue;
         }
 
-        if (!has_previous) {
-            history_frames.push_back(current_frame);
-            trim_history(history_frames);
-            previous_frame = current_frame;
-            has_previous = true;
-            continue;
+        remember_frame_packet(current_frame);
+        const std::optional<StableCaptureEvent> completed_event =
+            capture_state_machine.push_frame(current_frame.gray_frame);
+        if (!baseline_announced && capture_state_machine.has_baseline()) {
+            std::lock_guard<std::mutex> lock(state_mutex_);
+            stage1_ready_ = true;
+            baseline_announced = true;
         }
-
-        const MotionSummary motion = summarize_motion(
-            previous_frame.gray_frame,
-            current_frame.gray_frame,
-            pipeline_config_.motion_config
-        );
-
-        if (!event_active) {
-            history_frames.push_back(current_frame);
-            trim_history(history_frames);
-
-            if (cooldown_remaining > 0) {
-                --cooldown_remaining;
-                previous_frame = current_frame;
-                continue;
-            }
-
-            if (motion.changed_ratio >= pipeline_config_.frame_selector_config.motion_ratio_threshold) {
-                event_active = true;
-                stable_frame_count = 0;
-                event_frames.assign(history_frames.begin(), history_frames.end());
-            }
-        } else {
-            event_frames.push_back(current_frame);
-
-            if (motion.changed_ratio <= pipeline_config_.frame_selector_config.stable_ratio_threshold) {
-                ++stable_frame_count;
-            } else if (motion.changed_ratio >= pipeline_config_.frame_selector_config.motion_ratio_threshold) {
-                stable_frame_count = 0;
-            }
-
-            const bool enough_frames =
-                event_frames.size() >= static_cast<std::size_t>(
-                    options_.pre_event_frame_count + pipeline_config_.frame_selector_config.min_stable_run_frames + 2
-                );
-            const bool settled =
-                stable_frame_count >= static_cast<int>(pipeline_config_.frame_selector_config.min_stable_run_frames);
-            const bool reached_limit =
-                event_frames.size() >= static_cast<std::size_t>(std::max(10, options_.max_event_frame_count));
-
-            if (reached_limit || (enough_frames && settled)) {
-                process_event_window(event_frames);
-                history_frames.assign(
-                    event_frames.end() - std::min<std::size_t>(
-                        event_frames.size(),
-                        static_cast<std::size_t>(std::max(2, options_.pre_event_frame_count))
-                    ),
-                    event_frames.end()
-                );
-                trim_history(history_frames);
-                event_frames.clear();
-                event_active = false;
-                stable_frame_count = 0;
-                cooldown_remaining = std::max(0, options_.cooldown_frame_count);
-            }
+        if (completed_event.has_value()) {
+            process_event_window(*completed_event);
         }
-
-        previous_frame = current_frame;
     }
 
-    if (!event_frames.empty() && event_frames.size() >= 3) {
-        process_event_window(event_frames);
+    if (const std::optional<StableCaptureEvent> flushed_event = capture_state_machine.flush();
+        flushed_event.has_value()) {
+        process_event_window(*flushed_event);
     }
 }
 
@@ -1925,37 +2040,34 @@ bool Module12RealtimeHarness::Impl::write_crop_artifacts(
     return true;
 }
 
-void Module12RealtimeHarness::Impl::process_event_window(const std::vector<FramePacket>& packets) {
-    if (packets.size() < 2) {
+void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEvent& capture_event) {
+    const SelectedFrames& selected = capture_event.selected_frames;
+    if (selected.before_frame.empty() || selected.after_frame.empty()) {
         return;
     }
 
-    // Reuse module 1 on the captured event window instead of introducing a separate
-    // live-only keyframe implementation.
-    std::vector<GrayFrame> frames;
-    frames.reserve(packets.size());
-    for (const auto& packet : packets) {
-        frames.push_back(packet.gray_frame);
-    }
-
-    const SelectedFrames selected = select_keyframes(
-        frames,
-        pipeline_config_.motion_config,
-        pipeline_config_.frame_selector_config
-    );
     const std::string session_id = "live_" + now_as_local_filename_string() + "_" + sanitize_token(options_.case_id);
     const SessionPaths paths = artifact_writer_.create_layout(session_id);
 
+    const ColorFrame before_color = [&]() {
+        const std::optional<FramePacket> packet = find_frame_packet(selected.before_frame.index);
+        return packet.has_value() ? decode_color_frame(*packet) : promote_gray_to_color(selected.before_frame);
+    }();
+    const ColorFrame after_color = [&]() {
+        const std::optional<FramePacket> packet = find_frame_packet(selected.after_frame.index);
+        return packet.has_value() ? decode_color_frame(*packet) : promote_gray_to_color(selected.after_frame);
+    }();
+
     std::string error_message;
-    if (!write_debug_image(packets.back().gray_frame, paths.preview_latest_path, error_message)) {
+    if (!write_color_debug_image(after_color, paths.preview_latest_path, error_message)) {
         std::cerr << error_message << "\n";
         return;
     }
-    if (!write_debug_image(selected.before_frame, paths.stage1_before_path, error_message)) {
+    if (!write_color_debug_image(before_color, paths.stage1_before_path, error_message)) {
         std::cerr << error_message << "\n";
         return;
     }
-    if (!write_debug_image(selected.after_frame, paths.stage1_after_path, error_message)) {
+    if (!write_color_debug_image(after_color, paths.stage1_after_path, error_message)) {
         std::cerr << error_message << "\n";
         return;
     }
@@ -1969,12 +2081,12 @@ void Module12RealtimeHarness::Impl::process_event_window(const std::vector<Frame
     );
     stage1_event.roi_id = pipeline_config_.roi_id;
 
-    const GrayFrame overlay = build_overlay_frame(
-        selected.after_frame,
+    const ColorFrame overlay = build_overlay_color_frame(
+        after_color,
         pipeline_config_.motion_config.roi,
         stage1_event.change_regions
     );
-    if (!write_debug_image(overlay, paths.stage1_overlay_path, error_message)) {
+    if (!write_color_debug_image(overlay, paths.stage1_overlay_path, error_message)) {
         std::cerr << error_message << "\n";
         return;
     }
@@ -1995,7 +2107,7 @@ void Module12RealtimeHarness::Impl::process_event_window(const std::vector<Frame
                 paths.stage1_overlay_path,
                 paths.stage1_event_path
             },
-            frames.size(),
+            capture_event.total_frame_count,
             paths.stage1_debug_path,
             error_message
         )) {
@@ -2067,7 +2179,8 @@ void Module12RealtimeHarness::Impl::process_event_window(const std::vector<Frame
               session_id,
               options_.case_id,
               options_.module2_mode,
-              stage1_event
+              stage1_event,
+              capture_event
           )
         : build_test_report_json(
               session_id,
@@ -2155,6 +2268,7 @@ void Module12RealtimeHarness::Impl::process_event_window(const std::vector<Frame
                     << "  \"session_id\": \"" << escape_json(latest_event_state_.session_id) << "\",\n"
                     << "  \"case_id\": \"" << escape_json(latest_event_state_.case_id) << "\",\n"
                     << "  \"pipeline_mode\": \"" << escape_json(latest_event_state_.pipeline_mode) << "\",\n"
+                    << "  \"capture_strategy\": \"stable_state_transition\",\n"
                     << "  \"event_type\": \"" << escape_json(latest_event_state_.event_type) << "\",\n"
                     << "  \"actual_stage1_event_type\": \"" << escape_json(latest_event_state_.stage1_event_type) << "\",\n"
                     << "  \"actual_stage2_event_type\": \"" << escape_json(latest_event_state_.stage2_event_type) << "\",\n"

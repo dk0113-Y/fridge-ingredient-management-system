@@ -63,6 +63,25 @@ bool parse_double_value(const std::string& text, double& value) {
     return consumed == text.size();
 }
 
+bool parse_bool_value(const std::string& text, bool& value) {
+    std::string normalized = text;
+    std::transform(
+        normalized.begin(),
+        normalized.end(),
+        normalized.begin(),
+        [](unsigned char character) { return static_cast<char>(std::tolower(character)); }
+    );
+    if (normalized == "true" || normalized == "1" || normalized == "yes" || normalized == "on") {
+        value = true;
+        return true;
+    }
+    if (normalized == "false" || normalized == "0" || normalized == "no" || normalized == "off") {
+        value = false;
+        return true;
+    }
+    return false;
+}
+
 bool parse_roi_value(const std::string& text, BoundingBox& roi) {
     std::stringstream stream(text);
     std::string token;
@@ -123,17 +142,41 @@ bool set_config_value(
         if (key == "min_region_area_pixels") {
             return parse_int_value(value, config.motion_config.min_region_area_pixels);
         }
+        if (key == "compensate_global_brightness") {
+            return parse_bool_value(value, config.motion_config.compensate_global_brightness);
+        }
         if (key == "stable_ratio_threshold") {
             return parse_double_value(value, config.frame_selector_config.stable_ratio_threshold);
         }
         if (key == "motion_ratio_threshold") {
             return parse_double_value(value, config.frame_selector_config.motion_ratio_threshold);
         }
+        if (key == "baseline_change_ratio_threshold") {
+            return parse_double_value(value, config.frame_selector_config.baseline_change_ratio_threshold);
+        }
+        if (key == "persistent_change_ratio_threshold") {
+            return parse_double_value(value, config.frame_selector_config.persistent_change_ratio_threshold);
+        }
         if (key == "black_frame_mean_threshold") {
             return parse_double_value(value, config.frame_selector_config.black_frame_mean_threshold);
         }
         if (key == "min_stable_run_frames") {
             return parse_size_value(value, config.frame_selector_config.min_stable_run_frames);
+        }
+        if (key == "baseline_warmup_frames") {
+            return parse_size_value(value, config.frame_selector_config.baseline_warmup_frames);
+        }
+        if (key == "disturbance_trigger_frames") {
+            return parse_size_value(value, config.frame_selector_config.disturbance_trigger_frames);
+        }
+        if (key == "settle_run_frames") {
+            return parse_size_value(value, config.frame_selector_config.settle_run_frames);
+        }
+        if (key == "post_event_cooldown_frames") {
+            return parse_size_value(value, config.frame_selector_config.post_event_cooldown_frames);
+        }
+        if (key == "max_disturbance_frames") {
+            return parse_size_value(value, config.frame_selector_config.max_disturbance_frames);
         }
         if (key == "no_change_ratio") {
             return parse_double_value(value, config.detector_config.no_change_ratio);

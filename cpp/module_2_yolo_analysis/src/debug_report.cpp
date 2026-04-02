@@ -152,9 +152,20 @@ bool write_debug_summary(
            << config.frame_selector_config.stable_ratio_threshold << ",\n";
     output << "    \"motion_ratio_threshold\": " << std::fixed << std::setprecision(4)
            << config.frame_selector_config.motion_ratio_threshold << ",\n";
+    output << "    \"baseline_change_ratio_threshold\": " << std::fixed << std::setprecision(4)
+           << config.frame_selector_config.baseline_change_ratio_threshold << ",\n";
+    output << "    \"persistent_change_ratio_threshold\": " << std::fixed << std::setprecision(4)
+           << config.frame_selector_config.persistent_change_ratio_threshold << ",\n";
     output << "    \"black_frame_mean_threshold\": " << std::fixed << std::setprecision(3)
            << config.frame_selector_config.black_frame_mean_threshold << ",\n";
     output << "    \"min_stable_run_frames\": " << config.frame_selector_config.min_stable_run_frames << ",\n";
+    output << "    \"baseline_warmup_frames\": " << config.frame_selector_config.baseline_warmup_frames << ",\n";
+    output << "    \"disturbance_trigger_frames\": " << config.frame_selector_config.disturbance_trigger_frames << ",\n";
+    output << "    \"settle_run_frames\": " << config.frame_selector_config.settle_run_frames << ",\n";
+    output << "    \"post_event_cooldown_frames\": " << config.frame_selector_config.post_event_cooldown_frames << ",\n";
+    output << "    \"max_disturbance_frames\": " << config.frame_selector_config.max_disturbance_frames << ",\n";
+    output << "    \"compensate_global_brightness\": "
+           << (config.motion_config.compensate_global_brightness ? "true" : "false") << ",\n";
     output << "    \"no_change_ratio\": " << std::fixed << std::setprecision(4)
            << config.detector_config.no_change_ratio << ",\n";
     output << "    \"event_ratio\": " << std::fixed << std::setprecision(4)
@@ -182,6 +193,14 @@ bool write_debug_summary(
     output << "    \"after_mean_intensity\": " << std::fixed << std::setprecision(3)
            << frame_mean_intensity(selected_frames.after_frame) << ",\n";
     output << "    \"transition_count\": " << selected_frames.transitions.size() << ",\n";
+    output << "    \"peak_transition_ratio\": " << std::fixed << std::setprecision(4)
+           << selected_frames.peak_transition_ratio << ",\n";
+    output << "    \"peak_baseline_change_ratio\": " << std::fixed << std::setprecision(4)
+           << selected_frames.peak_baseline_change_ratio << ",\n";
+    output << "    \"final_change_ratio\": " << std::fixed << std::setprecision(4)
+           << selected_frames.final_change_ratio << ",\n";
+    output << "    \"stable_before_run_length\": " << selected_frames.stable_before_run_length << ",\n";
+    output << "    \"stable_after_run_length\": " << selected_frames.stable_after_run_length << ",\n";
     output << "    \"peak_transition_index\": "
            << (selected_frames.transitions.empty() ? 0 : peak_transition_index(selected_frames.transitions)) << "\n";
     output << "  },\n";

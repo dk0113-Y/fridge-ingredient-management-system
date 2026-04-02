@@ -178,6 +178,10 @@ SelectedFrames select_keyframes(
     const std::size_t first_usable = find_first_usable_frame(usable_frames);
     const std::size_t last_usable = find_last_usable_frame(usable_frames);
 
+    for (const auto& transition : selected.transitions) {
+        selected.peak_transition_ratio = std::max(selected.peak_transition_ratio, transition.changed_ratio);
+    }
+
     selected.before_index = first_usable == kNoIndex ? 0 : first_usable;
     selected.after_index = last_usable == kNoIndex ? frames.size() - 1 : last_usable;
     selected.before_frame = frames[selected.before_index];
@@ -210,6 +214,11 @@ SelectedFrames select_keyframes(
 
     selected.before_frame = frames[selected.before_index];
     selected.after_frame = frames[selected.after_index];
+    selected.final_change_ratio = summarize_motion(
+        selected.before_frame,
+        selected.after_frame,
+        motion_config
+    ).changed_ratio;
     return selected;
 }
 

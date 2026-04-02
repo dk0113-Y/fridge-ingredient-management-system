@@ -8,6 +8,7 @@ struct RoiMotionConfig {
     BoundingBox roi{};
     int pixel_delta_threshold = 8;
     int min_region_area_pixels = 4;
+    bool compensate_global_brightness = true;
 };
 
 MotionSummary summarize_motion(

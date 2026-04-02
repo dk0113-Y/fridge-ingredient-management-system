@@ -100,6 +100,11 @@ struct SelectedFrames {
     std::size_t before_index = 0;
     std::size_t after_index = 0;
     std::vector<MotionSummary> transitions;
+    double peak_transition_ratio = 0.0;
+    double peak_baseline_change_ratio = 0.0;
+    double final_change_ratio = 0.0;
+    std::size_t stable_before_run_length = 0;
+    std::size_t stable_after_run_length = 0;
 };
 
 struct DetectorConfig {

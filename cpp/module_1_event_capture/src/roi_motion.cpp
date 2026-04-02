@@ -61,22 +61,38 @@ ChangeMaskData build_change_mask(
         return data;
     }
 
+    double global_delta_offset = 0.0;
+    if (config.compensate_global_brightness) {
+        double global_delta_sum = 0.0;
+        for (int local_y = 0; local_y < data.roi.height; ++local_y) {
+            for (int local_x = 0; local_x < data.roi.width; ++local_x) {
+                const int x = data.roi.x + local_x;
+                const int y = data.roi.y + local_y;
+                global_delta_sum += static_cast<double>(after_frame.at(x, y)) -
+                    static_cast<double>(before_frame.at(x, y));
+            }
+        }
+        global_delta_offset = global_delta_sum / static_cast<double>(roi_pixels);
+    }
+
     data.mask.assign(roi_pixels, 0);
 
     for (int local_y = 0; local_y < data.roi.height; ++local_y) {
         for (int local_x = 0; local_x < data.roi.width; ++local_x) {
             const int x = data.roi.x + local_x;
             const int y = data.roi.y + local_y;
-            const int delta = static_cast<int>(after_frame.at(x, y)) - static_cast<int>(before_frame.at(x, y));
-            if (std::abs(delta) < config.pixel_delta_threshold) {
+            const double raw_delta = static_cast<double>(after_frame.at(x, y)) -
+                static_cast<double>(before_frame.at(x, y));
+            const double compensated_delta = raw_delta - global_delta_offset;
+            if (std::abs(compensated_delta) < static_cast<double>(config.pixel_delta_threshold)) {
                 continue;
             }
 
             const std::size_t offset = static_cast<std::size_t>(local_y * data.roi.width + local_x);
             data.mask[offset] = 1;
             ++data.changed_pixels;
-            data.signed_delta_sum += static_cast<double>(delta);
-            if (delta < 0) {
+            data.signed_delta_sum += compensated_delta;
+            if (compensated_delta < 0.0) {
                 ++data.darker_pixels;
             } else {
                 ++data.brighter_pixels;
