@@ -175,6 +175,30 @@ bool load_encoded_image_file(const fs::path& path, int frame_index, GrayFrame& f
 #endif
 }
 
+bool load_encoded_color_image_file(const fs::path& path, int frame_index, ColorFrame& frame, std::string& error_message) {
+#ifdef FRIDGE_USE_OPENCV
+    const cv::Mat image = cv::imread(path_to_display_string(path), cv::IMREAD_COLOR);
+    if (image.empty()) {
+        error_message = "Failed to load encoded color image: " + path_to_display_string(path);
+        return false;
+    }
+
+    frame.width = image.cols;
+    frame.height = image.rows;
+    frame.index = frame_index;
+    frame.pixels.assign(image.datastart, image.dataend);
+    return true;
+#else
+    (void)path;
+    (void)frame_index;
+    (void)frame;
+    error_message =
+        "Reading color JPG/PNG debug images requires an OpenCV-enabled build. "
+        "Without OpenCV, use grayscale .pgm debug images instead.";
+    return false;
+#endif
+}
+
 bool write_pgm_file(const GrayFrame& frame, const fs::path& path, std::string& error_message) {
     if (frame.empty()) {
         error_message = "Cannot write an empty frame.";
@@ -364,6 +388,42 @@ bool load_debug_image(const fs::path& input_path, GrayFrame& frame, std::string&
     }
 
     return load_encoded_image_file(input_path, 0, frame, error_message);
+}
+
+bool load_color_debug_image(const fs::path& input_path, ColorFrame& frame, std::string& error_message) {
+    frame = {};
+
+    if (!fs::exists(input_path)) {
+        error_message = "Input image does not exist: " + path_to_display_string(input_path);
+        return false;
+    }
+    if (!fs::is_regular_file(input_path)) {
+        error_message = "Input image is not a regular file: " + path_to_display_string(input_path);
+        return false;
+    }
+
+    const std::string extension = input_path.extension().string();
+    if (extension == ".pgm" || extension == ".PGM") {
+        GrayFrame gray_frame;
+        if (!load_pgm_file(input_path, 0, gray_frame, error_message)) {
+            return false;
+        }
+
+        frame.width = gray_frame.width;
+        frame.height = gray_frame.height;
+        frame.index = gray_frame.index;
+        frame.pixels.resize(static_cast<std::size_t>(gray_frame.width * gray_frame.height * 3));
+        for (std::size_t pixel_index = 0; pixel_index < gray_frame.pixels.size(); ++pixel_index) {
+            const std::uint8_t value = gray_frame.pixels[pixel_index];
+            const std::size_t base = pixel_index * 3;
+            frame.pixels[base] = value;
+            frame.pixels[base + 1] = value;
+            frame.pixels[base + 2] = value;
+        }
+        return true;
+    }
+
+    return load_encoded_color_image_file(input_path, 0, frame, error_message);
 }
 
 bool write_debug_image(const GrayFrame& frame, const fs::path& path, std::string& error_message) {

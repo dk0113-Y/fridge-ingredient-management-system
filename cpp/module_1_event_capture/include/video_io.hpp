@@ -11,6 +11,7 @@ namespace fridge {
 bool load_frames(const std::filesystem::path& input_path, std::vector<GrayFrame>& frames, std::string& error_message);
 
 bool load_debug_image(const std::filesystem::path& input_path, GrayFrame& frame, std::string& error_message);
+bool load_color_debug_image(const std::filesystem::path& input_path, ColorFrame& frame, std::string& error_message);
 
 bool write_debug_image(const GrayFrame& frame, const std::filesystem::path& output_path, std::string& error_message);
 

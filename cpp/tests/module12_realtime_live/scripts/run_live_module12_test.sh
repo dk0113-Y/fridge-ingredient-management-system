@@ -3,7 +3,11 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/../../../.." && pwd)
-BUILD_DIR="${BUILD_DIR:-$REPO_ROOT/cpp/build}"
+DEFAULT_BUILD_DIR="$REPO_ROOT/cpp/build"
+if [[ -d "$REPO_ROOT/cpp/build-linux" ]]; then
+  DEFAULT_BUILD_DIR="$REPO_ROOT/cpp/build-linux"
+fi
+BUILD_DIR="${BUILD_DIR:-$DEFAULT_BUILD_DIR}"
 BIN="${BIN:-$BUILD_DIR/fridge_module12_realtime_live}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-$REPO_ROOT/data/test_sessions/module12_realtime_live}"
 

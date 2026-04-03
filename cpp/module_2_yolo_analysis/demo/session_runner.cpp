@@ -34,6 +34,7 @@ namespace {
 
 using fridge::BoundingBox;
 using fridge::ChangeRegion;
+using fridge::ColorFrame;
 using fridge::CropRequest;
 using fridge::DetectionMatch;
 using fridge::EventResult;
@@ -220,6 +221,14 @@ bool parse_module2_mode(const std::string& text, Module2Mode& mode) {
 
 bool parse_event_type(const std::string& text, EventType& event_type) {
     const std::string normalized = to_lower_copy(text);
+    if (normalized == "capture_recorded") {
+        event_type = EventType::CaptureRecorded;
+        return true;
+    }
+    if (normalized == "not_evaluated") {
+        event_type = EventType::NotEvaluated;
+        return true;
+    }
     if (normalized == "no_change") {
         event_type = EventType::NoChange;
         return true;
@@ -426,6 +435,23 @@ fs::path resolve_session_frame_path(
         }
     }
     return {};
+}
+
+EventType mock_event_type_for_session(const std::string& session_token) {
+    const std::string normalized = to_lower_copy(session_token);
+    if (normalized.find("tc02") != std::string::npos || normalized.find("put_in") != std::string::npos) {
+        return EventType::PutIn;
+    }
+    if (normalized.find("tc03") != std::string::npos || normalized.find("take_out") != std::string::npos) {
+        return EventType::TakeOut;
+    }
+    if (normalized.find("tc04") != std::string::npos || normalized.find("partial") != std::string::npos) {
+        return EventType::PartialTakeOutCandidate;
+    }
+    if (normalized.find("tc01") != std::string::npos || normalized.find("no_change") != std::string::npos) {
+        return EventType::NoChange;
+    }
+    return EventType::NoChange;
 }
 
 bool load_stage1_session_snapshot(
@@ -827,6 +853,8 @@ Module2Execution run_module2(
     const Stage1SessionSnapshot& snapshot,
     const GrayFrame& before_frame,
     const GrayFrame& after_frame,
+    const ColorFrame& before_color,
+    const ColorFrame& after_color,
     const fs::path& repo_root,
     const fs::path& before_frame_path,
     const fs::path& after_frame_path,
@@ -840,11 +868,11 @@ Module2Execution run_module2(
 
     if (mode == Module2Mode::RealOnnxRuntime) {
         const YoloRuntime runtime(runtime_config);
-        const YoloOnnxOutput before_output = runtime.run(before_frame, repo_root, execution.failure_reason);
+        const YoloOnnxOutput before_output = runtime.run(before_color, repo_root, execution.failure_reason);
         if (!execution.failure_reason.empty()) {
             return execution;
         }
-        const YoloOnnxOutput after_output = runtime.run(after_frame, repo_root, execution.failure_reason);
+        const YoloOnnxOutput after_output = runtime.run(after_color, repo_root, execution.failure_reason);
         if (!execution.failure_reason.empty()) {
             return execution;
         }
@@ -882,8 +910,9 @@ Module2Execution run_module2(
     }
 
     const BoundingBox primary_box = choose_primary_box(snapshot, before_frame, after_frame);
+    const EventType mock_event_type = mock_event_type_for_session(snapshot.event.session_id);
     const std::string coarse_class =
-        snapshot.event.event_type == EventType::PartialTakeOutCandidate ? "fruit_vegetable" : mock_coarse_class;
+        mock_event_type == EventType::PartialTakeOutCandidate ? "fruit_vegetable" : mock_coarse_class;
     const int class_index = resolve_class_index(runtime_config.class_names, coarse_class);
 
     std::vector<float> before_values;
@@ -892,7 +921,7 @@ Module2Execution run_module2(
         values.insert(values.end(), row.begin(), row.end());
     };
 
-    switch (snapshot.event.event_type) {
+    switch (mock_event_type) {
     case EventType::PutIn:
         push_row(after_values, make_onnx_row(primary_box, after_frame, runtime_config, 0.92F, class_index));
         break;
@@ -919,6 +948,8 @@ Module2Execution run_module2(
         break;
     }
     case EventType::NoChange:
+    case EventType::CaptureRecorded:
+    case EventType::NotEvaluated:
         break;
     }
 
@@ -1117,10 +1148,20 @@ bool process_session(
         error_message = "Failed to load before frame: " + error_message;
         return false;
     }
+    ColorFrame before_color;
+    if (!fridge::load_color_debug_image(before_frame_path, before_color, error_message)) {
+        error_message = "Failed to load before color frame: " + error_message;
+        return false;
+    }
 
     GrayFrame after_frame;
     if (!fridge::load_debug_image(after_frame_path, after_frame, error_message)) {
         error_message = "Failed to load after frame: " + error_message;
+        return false;
+    }
+    ColorFrame after_color;
+    if (!fridge::load_color_debug_image(after_frame_path, after_color, error_message)) {
+        error_message = "Failed to load after color frame: " + error_message;
         return false;
     }
 
@@ -1128,6 +1169,8 @@ bool process_session(
         snapshot,
         before_frame,
         after_frame,
+        before_color,
+        after_color,
         repo_root,
         before_frame_path,
         after_frame_path,
@@ -1166,13 +1209,17 @@ bool process_session(
         snapshot.event.session_id,
         options.module2_mode,
         execution,
-        snapshot.event.event_type
+        EventType::NotEvaluated
     );
     if (!write_text_file(output_paths.result_path, result_json, error_message)) {
         return false;
     }
 
     EventResult final_event = execution.success ? execution.result.event : snapshot.event;
+    if (!execution.success) {
+        final_event.event_type = EventType::NotEvaluated;
+        final_event.need_user_confirm = true;
+    }
     final_event.session_id = snapshot.event.session_id;
     final_event.roi_id = snapshot.event.roi_id;
     final_event.before_frame = path_to_utf8_string(before_frame_path);
@@ -1193,7 +1240,7 @@ bool process_session(
         options.module2_mode,
         runtime_info,
         execution,
-        snapshot.event.event_type
+        EventType::NotEvaluated
     );
 
     processed = true;

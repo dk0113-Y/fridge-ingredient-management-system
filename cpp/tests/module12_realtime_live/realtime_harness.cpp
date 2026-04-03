@@ -77,17 +77,6 @@ struct FramePacket {
     }
 };
 
-struct ColorFrame {
-    int width = 0;
-    int height = 0;
-    int index = 0;
-    std::vector<std::uint8_t> pixels;
-
-    bool empty() const {
-        return width <= 0 || height <= 0 || pixels.size() < static_cast<std::size_t>(width * height * 3);
-    }
-};
-
 struct SessionPaths {
     std::filesystem::path session_dir;
     std::filesystem::path preview_dir;
@@ -132,6 +121,7 @@ struct LatestEventState {
     bool stage2_success = false;
     bool fallback_used = false;
     std::string fallback_reason;
+    std::string stage2_failure_reason;
     std::string session_id;
     std::string case_id;
     std::string event_type = "none";
@@ -365,6 +355,7 @@ std::string sanitize_token(std::string token);
 std::string to_lower_copy(std::string value);
 std::string pipeline_mode_string(const LiveHarnessOptions& options);
 std::string expected_event_type_for_case(const std::string& case_id);
+EventType mock_event_type_for_case(const std::string& case_id);
 std::string default_mock_class_for_case(const std::string& case_id);
 std::string resolve_public_host(const std::string& configured_public_host, const std::string& bind_host);
 std::string make_preview_url(const std::string& public_host, int port);
@@ -448,8 +439,7 @@ std::string build_test_report_json(
     const EventResult& stage1_event,
     const Module2Execution& stage2_execution,
     const EventResult& final_event,
-    bool fallback_used,
-    const std::string& fallback_reason
+    const std::string& stage2_failure_reason
 );
 std::string build_run_manifest_json(
     const SessionPaths& paths,
@@ -459,8 +449,8 @@ std::string build_run_manifest_json(
     const std::string& preview_url,
     const std::string& status_url,
     const std::string& final_event_type,
-    bool fallback_used,
-    const std::string& fallback_reason
+    bool stage2_success,
+    const std::string& stage2_failure_reason
 );
 std::string build_latest_run_manifest_json(
     const std::string& session_id,
@@ -550,6 +540,23 @@ std::string expected_event_type_for_case(const std::string& case_id) {
         return "partial_take_out_candidate";
     }
     return "unspecified";
+}
+
+EventType mock_event_type_for_case(const std::string& case_id) {
+    const std::string expected = expected_event_type_for_case(case_id);
+    if (expected == "put_in") {
+        return EventType::PutIn;
+    }
+    if (expected == "take_out") {
+        return EventType::TakeOut;
+    }
+    if (expected == "partial_take_out_candidate") {
+        return EventType::PartialTakeOutCandidate;
+    }
+    if (expected == "no_change") {
+        return EventType::NoChange;
+    }
+    return EventType::NoChange;
 }
 
 std::string pipeline_mode_string(const LiveHarnessOptions& options) {
@@ -814,6 +821,39 @@ std::array<float, 6> make_onnx_row(
         score,
         static_cast<float>(class_index)
     };
+}
+
+EventResult build_stage1_capture_event(
+    const std::string& session_id,
+    const std::string& roi_id,
+    const StableCaptureEvent& capture_event,
+    const std::filesystem::path& before_frame_path,
+    const std::filesystem::path& after_frame_path
+) {
+    EventResult event;
+    event.session_id = session_id;
+    event.timestamp = now_as_utc_string();
+    event.event_type = EventType::CaptureRecorded;
+    event.roi_id = roi_id;
+    event.confidence = std::clamp(capture_event.selected_frames.final_change_ratio, 0.0, 1.0);
+    event.before_frame = path_to_utf8_string(before_frame_path);
+    event.after_frame = path_to_utf8_string(after_frame_path);
+    event.change_regions = capture_event.final_change.regions;
+    event.need_user_confirm = false;
+    return event;
+}
+
+EventResult build_stage2_unavailable_event(
+    const EventResult& stage1_capture_event,
+    const std::string& before_frame_path,
+    const std::string& after_frame_path
+) {
+    EventResult event = stage1_capture_event;
+    event.event_type = EventType::NotEvaluated;
+    event.need_user_confirm = true;
+    event.before_frame = before_frame_path;
+    event.after_frame = after_frame_path;
+    return event;
 }
 
 bool initialize_socket_runtime(std::string& error_message) {
@@ -1094,14 +1134,13 @@ std::string build_test_report_json(
     const EventResult& stage1_event,
     const Module2Execution& stage2_execution,
     const EventResult& final_event,
-    bool fallback_used,
-    const std::string& fallback_reason
+    const std::string& stage2_failure_reason
 ) {
     const std::string expected = expected_event_type_for_case(case_id);
     const std::string stage1_type = to_string(stage1_event.event_type);
     const std::string stage2_type = stage2_execution.success
         ? to_string(stage2_execution.result.event.event_type)
-        : stage1_type;
+        : to_string(EventType::NotEvaluated);
     const std::string final_type = to_string(final_event.event_type);
     const bool pass = expected == "unspecified" ? false : expected == final_type;
 
@@ -1116,9 +1155,11 @@ std::string build_test_report_json(
            << "  \"actual_stage1_event_type\": \"" << escape_json(stage1_type) << "\",\n"
            << "  \"actual_stage2_event_type\": \"" << escape_json(stage2_type) << "\",\n"
            << "  \"final_event_type\": \"" << escape_json(final_type) << "\",\n"
-           << "  \"pass\": " << bool_to_json(pass) << ",\n"
-           << "  \"fallback_used\": " << bool_to_json(fallback_used) << ",\n"
-           << "  \"fallback_reason\": \"" << escape_json(fallback_reason) << "\",\n"
+           << "  \"stage2_success\": " << bool_to_json(stage2_execution.success) << ",\n"
+            << "  \"pass\": " << bool_to_json(pass) << ",\n"
+           << "  \"fallback_used\": false,\n"
+           << "  \"fallback_reason\": \"\",\n"
+           << "  \"stage2_failure_reason\": \"" << escape_json(stage2_failure_reason) << "\",\n"
            << "  \"notes\": \"partial_take_out_candidate only applies to fruit_vegetable scenes. drink scenes do not auto-detect partial removal.\"\n"
            << "}\n";
     return output.str();
@@ -1132,8 +1173,8 @@ std::string build_run_manifest_json(
     const std::string& preview_url,
     const std::string& status_url,
     const std::string& final_event_type,
-    bool fallback_used,
-    const std::string& fallback_reason
+    bool stage2_success,
+    const std::string& stage2_failure_reason
 ) {
     std::ostringstream output;
     output << "{\n"
@@ -1144,8 +1185,10 @@ std::string build_run_manifest_json(
            << "  \"preview_url\": \"" << escape_json(preview_url) << "\",\n"
            << "  \"status_url\": \"" << escape_json(status_url) << "\",\n"
            << "  \"final_event_type\": \"" << escape_json(final_event_type) << "\",\n"
-           << "  \"fallback_used\": " << bool_to_json(fallback_used) << ",\n"
-           << "  \"fallback_reason\": \"" << escape_json(fallback_reason) << "\",\n"
+           << "  \"stage2_success\": " << bool_to_json(stage2_success) << ",\n"
+           << "  \"fallback_used\": false,\n"
+           << "  \"fallback_reason\": \"\",\n"
+           << "  \"stage2_failure_reason\": \"" << escape_json(stage2_failure_reason) << "\",\n"
            << "  \"paths\": {\n"
            << "    \"session_dir\": \"" << escape_json(path_to_utf8_string(paths.session_dir)) << "\",\n"
            << "    \"preview\": \"" << escape_json(path_to_utf8_string(paths.preview_latest_path)) << "\",\n"
@@ -1698,11 +1741,14 @@ private:
     void processing_loop();
     Module2Execution run_module2(
         const std::string& session_id,
-        const EventResult& stage1_event,
+        const EventResult& stage1_capture_event,
         const GrayFrame& before_frame,
         const GrayFrame& after_frame,
+        const ColorFrame& before_color,
+        const ColorFrame& after_color,
         const std::filesystem::path& before_frame_path,
-        const std::filesystem::path& after_frame_path
+        const std::filesystem::path& after_frame_path,
+        EventType mock_event_type
     ) const;
     bool write_crop_artifacts(
         const SessionPaths& paths,
@@ -2012,22 +2058,25 @@ void Module12RealtimeHarness::Impl::processing_loop() {
 
 Module2Execution Module12RealtimeHarness::Impl::run_module2(
     const std::string& session_id,
-    const EventResult& stage1_event,
+    const EventResult& stage1_capture_event,
     const GrayFrame& before_frame,
     const GrayFrame& after_frame,
+    const ColorFrame& before_color,
+    const ColorFrame& after_color,
     const std::filesystem::path& before_frame_path,
-    const std::filesystem::path& after_frame_path
+    const std::filesystem::path& after_frame_path,
+    EventType mock_event_type
 ) const {
     Module2Execution execution;
     const YoloModule2Pipeline pipeline(yolo_runtime_config_, yolo_analysis_config_);
 
     if (options_.module2_mode == Module2Mode::RealOnnxRuntime) {
         const YoloRuntime runtime(yolo_runtime_config_);
-        const YoloOnnxOutput before_output = runtime.run(before_frame, repo_root_, execution.failure_reason);
+        const YoloOnnxOutput before_output = runtime.run(before_color, repo_root_, execution.failure_reason);
         if (!execution.failure_reason.empty()) {
             return execution;
         }
-        const YoloOnnxOutput after_output = runtime.run(after_frame, repo_root_, execution.failure_reason);
+        const YoloOnnxOutput after_output = runtime.run(after_color, repo_root_, execution.failure_reason);
         if (!execution.failure_reason.empty()) {
             return execution;
         }
@@ -2066,13 +2115,13 @@ Module2Execution Module12RealtimeHarness::Impl::run_module2(
     // Test-only mock mode: generate ONNX-like outputs so the existing C++ module 2
     // decode and diff-analysis path can be exercised without a real runtime backend.
     const BoundingBox primary_box = choose_primary_box(
-        stage1_event,
+        stage1_capture_event,
         before_frame,
         after_frame,
         pipeline_config_.motion_config.roi
     );
     const std::string coarse_class =
-        stage1_event.event_type == EventType::PartialTakeOutCandidate
+        mock_event_type == EventType::PartialTakeOutCandidate
             ? "fruit_vegetable"
             : options_.mock_coarse_class;
     const int class_index = resolve_class_index(yolo_runtime_config_.class_names, coarse_class);
@@ -2083,7 +2132,7 @@ Module2Execution Module12RealtimeHarness::Impl::run_module2(
         values.insert(values.end(), row.begin(), row.end());
     };
 
-    switch (stage1_event.event_type) {
+    switch (mock_event_type) {
     case EventType::PutIn:
         push_row(after_values, make_onnx_row(primary_box, after_frame, yolo_runtime_config_, 0.92F, class_index));
         break;
@@ -2110,6 +2159,8 @@ Module2Execution Module12RealtimeHarness::Impl::run_module2(
         break;
     }
     case EventType::NoChange:
+    case EventType::CaptureRecorded:
+    case EventType::NotEvaluated:
         break;
     }
 
@@ -2231,14 +2282,13 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
         return;
     }
 
-    EventDetector detector(pipeline_config_.detector_config, pipeline_config_.motion_config);
-    EventResult stage1_event = detector.detect(
-        selected,
+    EventResult stage1_event = build_stage1_capture_event(
         session_id,
-        path_to_utf8_string(paths.stage1_before_path),
-        path_to_utf8_string(paths.stage1_after_path)
+        pipeline_config_.roi_id,
+        capture_event,
+        paths.stage1_before_path,
+        paths.stage1_after_path
     );
-    stage1_event.roi_id = pipeline_config_.roi_id;
 
     const ColorFrame overlay = build_overlay_color_frame(
         after_color,
@@ -2283,8 +2333,11 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
             stage1_event,
             selected.before_frame,
             selected.after_frame,
+            before_color,
+            after_color,
             paths.stage1_before_path,
-            paths.stage1_after_path
+            paths.stage1_after_path,
+            mock_event_type_for_case(options_.case_id)
         );
     }
 
@@ -2318,16 +2371,25 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
         session_id,
         options_.module2_mode,
         stage2_execution,
-        stage1_event.event_type
+        EventType::NotEvaluated
     );
     if (!artifact_writer_.write_text(paths.stage2_result_path, stage2_result_json, error_message)) {
         std::cerr << error_message << "\n";
         return;
     }
 
-    const bool fallback_used = !options_.capture_only && !stage2_execution.success;
-    const std::string fallback_reason = fallback_used ? stage2_execution.failure_reason : "";
-    EventResult final_event = (options_.capture_only || fallback_used) ? stage1_event : stage2_execution.result.event;
+    const bool fallback_used = false;
+    const std::string fallback_reason;
+    const std::string stage2_failure_reason = options_.capture_only ? "" : stage2_execution.failure_reason;
+    EventResult final_event = options_.capture_only
+        ? stage1_event
+        : (stage2_execution.success
+               ? stage2_execution.result.event
+               : build_stage2_unavailable_event(
+                     stage1_event,
+                     path_to_utf8_string(paths.stage1_before_path),
+                     path_to_utf8_string(paths.stage1_after_path)
+                 ));
     final_event.roi_id = pipeline_config_.roi_id;
     final_event.before_frame = path_to_utf8_string(paths.stage1_before_path);
     final_event.after_frame = path_to_utf8_string(paths.stage1_after_path);
@@ -2352,8 +2414,7 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
               stage1_event,
               stage2_execution,
               final_event,
-              fallback_used,
-              fallback_reason
+              stage2_failure_reason
           );
     if (!artifact_writer_.write_text(paths.final_report_path, report_json, error_message)) {
         std::cerr << error_message << "\n";
@@ -2382,8 +2443,8 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
         preview_url_,
         status_url_,
         final_event_label,
-        fallback_used,
-        fallback_reason
+        stage2_execution.success,
+        stage2_failure_reason
     );
     if (!artifact_writer_.write_text(paths.run_manifest_path, run_manifest_json, error_message)) {
         std::cerr << error_message << "\n";
@@ -2413,6 +2474,7 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
         latest_event_state_.stage2_success = stage2_execution.success;
         latest_event_state_.fallback_used = fallback_used;
         latest_event_state_.fallback_reason = fallback_reason;
+        latest_event_state_.stage2_failure_reason = stage2_failure_reason;
         latest_event_state_.session_id = session_id;
         latest_event_state_.case_id = options_.case_id;
         latest_event_state_.event_type = final_event_label;
@@ -2421,7 +2483,7 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
             ? "skipped"
             : (stage2_execution.success
                    ? to_string(stage2_execution.result.event.event_type)
-                   : to_string(stage1_event.event_type));
+                   : to_string(EventType::NotEvaluated));
         latest_event_state_.pipeline_mode = pipeline_mode_string(options_);
         latest_event_state_.session_dir = path_to_utf8_string(paths.session_dir);
         latest_event_state_.report_path = path_to_utf8_string(paths.final_report_path);
@@ -2446,6 +2508,7 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
                     << "  \"stage2_success\": " << bool_to_json(latest_event_state_.stage2_success) << ",\n"
                     << "  \"fallback_used\": " << bool_to_json(latest_event_state_.fallback_used) << ",\n"
                     << "  \"fallback_reason\": \"" << escape_json(latest_event_state_.fallback_reason) << "\",\n"
+                    << "  \"stage2_failure_reason\": \"" << escape_json(latest_event_state_.stage2_failure_reason) << "\",\n"
                     << "  \"session_dir\": \"" << escape_json(latest_event_state_.session_dir) << "\",\n"
                     << "  \"report_path\": \"" << escape_json(latest_event_state_.report_path) << "\",\n"
                     << "  \"stage2_result_path\": \"" << escape_json(latest_event_state_.stage2_result_path) << "\",\n"

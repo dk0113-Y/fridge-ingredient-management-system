@@ -965,6 +965,34 @@ YoloModelInput prepare_yolo_model_input(const GrayFrame& frame, const YoloRuntim
     return input;
 }
 
+YoloModelInput prepare_yolo_model_input(const ColorFrame& frame, const YoloRuntimeConfig& config) {
+    YoloModelInput input;
+    input.channels = 3;
+    input.height = std::max(0, config.input_height);
+    input.width = std::max(0, config.input_width);
+    if (frame.empty() || input.height == 0 || input.width == 0) {
+        return input;
+    }
+
+    const std::size_t plane_size = static_cast<std::size_t>(input.height * input.width);
+    input.values.resize(static_cast<std::size_t>(input.channels) * plane_size, 0.0F);
+    for (int y = 0; y < input.height; ++y) {
+        const int src_y = std::min(frame.height - 1, (y * frame.height) / input.height);
+        for (int x = 0; x < input.width; ++x) {
+            const int src_x = std::min(frame.width - 1, (x * frame.width) / input.width);
+            const std::size_t source_index = static_cast<std::size_t>((src_y * frame.width + src_x) * 3);
+            const float blue = static_cast<float>(frame.pixels[source_index]) / 255.0F;
+            const float green = static_cast<float>(frame.pixels[source_index + 1]) / 255.0F;
+            const float red = static_cast<float>(frame.pixels[source_index + 2]) / 255.0F;
+            const std::size_t spatial_index = static_cast<std::size_t>(y * input.width + x);
+            input.values[spatial_index] = red;
+            input.values[plane_size + spatial_index] = green;
+            input.values[(plane_size * 2) + spatial_index] = blue;
+        }
+    }
+    return input;
+}
+
 std::vector<YoloDetection> decode_yolo_onnx_output(
     const YoloOnnxOutput& output,
     const GrayFrame& source_frame,
@@ -1035,6 +1063,10 @@ YoloModule2Pipeline::YoloModule2Pipeline(YoloRuntimeConfig runtime_config, YoloA
       analyzer_(std::move(analysis_config)) {}
 
 YoloModelInput YoloModule2Pipeline::prepare_input(const GrayFrame& frame) const {
+    return prepare_yolo_model_input(frame, runtime_config_);
+}
+
+YoloModelInput YoloModule2Pipeline::prepare_input(const ColorFrame& frame) const {
     return prepare_yolo_model_input(frame, runtime_config_);
 }
 
@@ -1176,6 +1208,87 @@ YoloOnnxOutput YoloRuntime::run(
     if (ort_error.empty()) {
         return ort_output;
     }
+    error_message = ort_error;
+    return {};
+#endif
+
+#ifdef FRIDGE_USE_OPENCV
+    const int blob_sizes[] = {1, prepared.channels, prepared.height, prepared.width};
+    cv::Mat blob(4, blob_sizes, CV_32F);
+    std::copy(prepared.values.begin(), prepared.values.end(), reinterpret_cast<float*>(blob.data));
+
+    try {
+        cv::dnn::Net net = cv::dnn::readNetFromONNX(info.resolved_model_path.string());
+        if (net.empty()) {
+            error_message = "OpenCV DNN returned an empty network for model: " + info.resolved_model_path.string();
+            return {};
+        }
+
+        net.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
+        net.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
+        net.setInput(blob);
+
+        std::vector<cv::Mat> outputs;
+        const std::vector<cv::String> output_names = net.getUnconnectedOutLayersNames();
+        if (output_names.empty()) {
+            outputs.push_back(net.forward());
+        } else {
+            net.forward(outputs, output_names);
+        }
+        if (outputs.empty()) {
+            error_message = "OpenCV DNN did not return any output tensors";
+            return {};
+        }
+
+        return build_normalized_output(outputs, config_, error_message);
+    } catch (const cv::Exception& ex) {
+        error_message = "OpenCV DNN inference failed: " + std::string(ex.what());
+        return {};
+    }
+#else
+    (void)repo_root;
+#ifdef FRIDGE_USE_ONNXRUNTIME
+    error_message = ort_error;
+#else
+    error_message =
+        "YOLO ONNX inference requires an OpenCV-enabled build with DNN support.";
+#endif
+    return {};
+#endif
+}
+
+YoloOnnxOutput YoloRuntime::run(
+    const ColorFrame& frame,
+    const std::filesystem::path& repo_root,
+    std::string& error_message
+) const {
+    error_message.clear();
+
+    if (frame.empty()) {
+        error_message = "Cannot run YOLO inference on an empty color frame";
+        return {};
+    }
+
+    const auto info = inspect(repo_root);
+    if (!info.can_run_in_current_cpp_runtime) {
+        error_message = info.message;
+        return {};
+    }
+
+    const YoloModelInput prepared = prepare_yolo_model_input(frame, config_);
+    if (prepared.height <= 0 || prepared.width <= 0 || prepared.values.empty()) {
+        error_message = "Failed to prepare YOLO model input";
+        return {};
+    }
+
+#ifdef FRIDGE_USE_ONNXRUNTIME
+    std::string ort_error;
+    YoloOnnxOutput ort_output = run_onnxruntime_model(info.resolved_model_path, config_, prepared, ort_error);
+    if (ort_error.empty()) {
+        return ort_output;
+    }
+    error_message = ort_error;
+    return {};
 #endif
 
 #ifdef FRIDGE_USE_OPENCV

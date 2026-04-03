@@ -66,6 +66,7 @@ bool load_yolo_runtime_config(
 );
 
 YoloModelInput prepare_yolo_model_input(const GrayFrame& frame, const YoloRuntimeConfig& config);
+YoloModelInput prepare_yolo_model_input(const ColorFrame& frame, const YoloRuntimeConfig& config);
 
 std::vector<YoloDetection> decode_yolo_onnx_output(
     const YoloOnnxOutput& output,
@@ -79,6 +80,7 @@ public:
     YoloModule2Pipeline(YoloRuntimeConfig runtime_config = {}, YoloAnalysisConfig analysis_config = {});
 
     YoloModelInput prepare_input(const GrayFrame& frame) const;
+    YoloModelInput prepare_input(const ColorFrame& frame) const;
 
     std::vector<YoloDetection> decode_output(
         const YoloOnnxOutput& output,
@@ -108,6 +110,7 @@ public:
 
     YoloRuntimeInfo inspect(const std::filesystem::path& repo_root) const;
     YoloOnnxOutput run(const GrayFrame& frame, const std::filesystem::path& repo_root, std::string& error_message) const;
+    YoloOnnxOutput run(const ColorFrame& frame, const std::filesystem::path& repo_root, std::string& error_message) const;
 
 private:
     YoloRuntimeConfig config_;

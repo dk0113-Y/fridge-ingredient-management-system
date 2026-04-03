@@ -27,6 +27,8 @@ struct DetectedObject {
 };
 
 enum class EventType {
+    CaptureRecorded,
+    NotEvaluated,
     NoChange,
     PutIn,
     TakeOut,
@@ -36,6 +38,10 @@ enum class EventType {
 
 inline std::string to_string(EventType event_type) {
     switch (event_type) {
+    case EventType::CaptureRecorded:
+        return "capture_recorded";
+    case EventType::NotEvaluated:
+        return "not_evaluated";
     case EventType::NoChange:
         return "no_change";
     case EventType::PutIn:
@@ -51,7 +57,9 @@ inline std::string to_string(EventType event_type) {
 }
 
 inline bool needs_manual_review(EventType event_type) {
-    return event_type == EventType::PartialTakeOutCandidate || event_type == EventType::Uncertain;
+    return event_type == EventType::PartialTakeOutCandidate ||
+           event_type == EventType::Uncertain ||
+           event_type == EventType::NotEvaluated;
 }
 
 struct GrayFrame {
@@ -66,6 +74,18 @@ struct GrayFrame {
 
     std::uint8_t at(int x, int y) const {
         return pixels.at(static_cast<std::size_t>(y * width + x));
+    }
+};
+
+struct ColorFrame {
+    int width = 0;
+    int height = 0;
+    int index = 0;
+    std::vector<std::uint8_t> pixels;
+
+    bool empty() const {
+        return width <= 0 || height <= 0 ||
+               pixels.size() < static_cast<std::size_t>(width * height * 3);
     }
 };
 
