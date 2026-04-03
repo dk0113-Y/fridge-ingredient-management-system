@@ -97,13 +97,24 @@ bool debug_runtime_inspection() {
         << " exists=" << info.model_exists
         << " runnable=" << info.can_run_in_current_cpp_runtime << "\n";
 
+#if defined(FRIDGE_USE_ONNXRUNTIME) || defined(FRIDGE_USE_OPENCV)
     return expect(info.model_exists, "module 2 should find the configured YOLO model asset") &&
            expect(info.model_format == fridge::YoloModelFormat::Onnx, "module 2 should detect the configured asset as onnx format") &&
-           expect(!info.can_run_in_current_cpp_runtime, "current C++ runtime should not claim end-to-end ONNX inference support yet") &&
+           expect(info.can_run_in_current_cpp_runtime, "native runtime should claim ONNX inference support when ONNX Runtime or OpenCV DNN is available") &&
+           expect(
+               info.message.find("ONNX Runtime") != std::string::npos ||
+                   info.message.find("OpenCV DNN") != std::string::npos,
+               "module 2 runtime message should explain which native ONNX backend is active"
+           );
+#else
+    return expect(info.model_exists, "module 2 should find the configured YOLO model asset") &&
+           expect(info.model_format == fridge::YoloModelFormat::Onnx, "module 2 should detect the configured asset as onnx format") &&
+           expect(!info.can_run_in_current_cpp_runtime, "builds without ONNX Runtime or OpenCV DNN should not claim end-to-end ONNX inference support") &&
            expect(
                info.message.find("ONNX") != std::string::npos || info.message.find("onnx") != std::string::npos,
                "module 2 runtime message should explain that ONNX still needs a C++ inference backend"
            );
+#endif
 }
 
 bool debug_module2_pipeline_on_onnx_outputs() {

@@ -25,7 +25,7 @@ This repository follows the all-C/C++ baseline defined in
 ## What Is Implemented
 
 - `cpp/`: stage-1 keyframe extraction, ROI motion analysis, event classification, and debug artifact output
-- `cpp/module_2_yolo_analysis/`: ONNX model-asset inspection, grayscale preprocessing, ONNX output decoding, box matching, and YOLO diff-analysis baseline
+- `cpp/module_2_yolo_analysis/`: ONNX model execution via OpenCV DNN, preprocessing, ONNX output decoding, box matching, and YOLO diff-analysis baseline
 - `cpp/module_3_fine_grained/`: C++ fine-grained recognition client skeleton with mock mode and provider-neutral config
 - `cpp/module_4_inventory/`: inventory rule engine, pending review flow, and manual update baseline
 - `cpp/module_5_local_service/`: local service facade for health, inventory, events, pending review, confirm, and manual update
@@ -40,8 +40,8 @@ This repository follows the all-C/C++ baseline defined in
 
 ## Current Limits
 
-- `models/best.onnx` is now tracked by module 2, and module 2 already covers preprocessing plus ONNX-output decoding, but the current C++ runtime still does not execute the ONNX graph itself
+- `models/best.onnx` is now wired into module 2 through ONNX Runtime when available, with OpenCV DNN kept as a secondary fallback
 - `models/best.pt` is retained as the original training/export weight file
-- real YOLO inference still needs an ONNX Runtime or another C++ inference backend
+- builds without ONNX Runtime / OpenCV DNN still fall back to mock / `.pgm` debug paths and do not execute the ONNX graph
 - module 4 is still an in-memory inventory baseline and has not been switched to SQLite yet
 - module 5 is still a local service facade and has not been connected to a real HTTP server yet

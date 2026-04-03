@@ -8,14 +8,46 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_compile_definitions(FRIDGE_CPP_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 
 option(FRIDGE_USE_OPENCV "Enable OpenCV-based video decoding and JPG export" ON)
+option(FRIDGE_USE_ONNXRUNTIME "Enable ONNX Runtime-based YOLO inference backend" ON)
 option(FRIDGE_BUILD_CLOUD_CLASSIFIER "Build the independent cloud fine-grained recognizer skeleton" ON)
 
+set(FRIDGE_ONNXRUNTIME_ROOT "" CACHE PATH "Root directory of an ONNX Runtime SDK install")
+
 if(FRIDGE_USE_OPENCV)
-    find_package(OpenCV QUIET COMPONENTS core imgproc imgcodecs videoio)
+    find_package(OpenCV QUIET COMPONENTS core imgproc imgcodecs videoio dnn)
     if(OpenCV_FOUND)
         message(STATUS "OpenCV found, real video decoding is enabled.")
     else()
-        message(STATUS "OpenCV not found, falling back to frame-directory mode.")
+        message(STATUS "OpenCV with dnn support not found, falling back to frame-directory mode.")
+    endif()
+endif()
+
+if(FRIDGE_USE_ONNXRUNTIME)
+    set(_onnxruntime_hints)
+    if(FRIDGE_ONNXRUNTIME_ROOT)
+        list(APPEND _onnxruntime_hints "${FRIDGE_ONNXRUNTIME_ROOT}")
+    endif()
+    if(DEFINED ENV{ONNXRUNTIME_ROOT} AND NOT "$ENV{ONNXRUNTIME_ROOT}" STREQUAL "")
+        list(APPEND _onnxruntime_hints "$ENV{ONNXRUNTIME_ROOT}")
+    endif()
+
+    find_path(ONNXRUNTIME_INCLUDE_DIR
+        NAMES onnxruntime_cxx_api.h onnxruntime/core/session/onnxruntime_cxx_api.h
+        HINTS ${_onnxruntime_hints}
+        PATH_SUFFIXES include
+    )
+    find_library(ONNXRUNTIME_LIBRARY
+        NAMES onnxruntime
+        HINTS ${_onnxruntime_hints}
+        PATH_SUFFIXES lib lib64
+    )
+
+    if(ONNXRUNTIME_INCLUDE_DIR AND ONNXRUNTIME_LIBRARY)
+        set(ONNXRUNTIME_FOUND TRUE)
+        message(STATUS "ONNX Runtime found, module-2 native ONNX inference is enabled.")
+    else()
+        set(ONNXRUNTIME_FOUND FALSE)
+        message(STATUS "ONNX Runtime not found, module-2 will not use the ONNX Runtime backend.")
     endif()
 endif()
 
@@ -41,6 +73,12 @@ if(OpenCV_FOUND)
     target_compile_definitions(fridge_vision PUBLIC FRIDGE_USE_OPENCV=1)
     target_include_directories(fridge_vision PUBLIC ${OpenCV_INCLUDE_DIRS})
     target_link_libraries(fridge_vision PUBLIC ${OpenCV_LIBS})
+endif()
+
+if(ONNXRUNTIME_FOUND)
+    target_compile_definitions(fridge_vision PUBLIC FRIDGE_USE_ONNXRUNTIME=1)
+    target_include_directories(fridge_vision PUBLIC ${ONNXRUNTIME_INCLUDE_DIR})
+    target_link_libraries(fridge_vision PUBLIC ${ONNXRUNTIME_LIBRARY})
 endif()
 
 add_executable(fridge_vision_demo
@@ -101,6 +139,14 @@ add_executable(fridge_debug_module_2
 )
 target_link_libraries(fridge_debug_module_2 PRIVATE fridge_vision)
 add_test(NAME fridge_debug_module_2 COMMAND fridge_debug_module_2)
+
+add_executable(fridge_module2_session_runner
+    module_2_yolo_analysis/demo/session_runner.cpp
+)
+target_link_libraries(fridge_module2_session_runner PRIVATE fridge_vision)
+target_include_directories(fridge_module2_session_runner PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/module_3_fine_grained/third_party
+)
 
 add_executable(fridge_debug_module_4
     tests/debug_module_4_inventory.cpp

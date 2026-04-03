@@ -56,21 +56,22 @@ bool test_mock_returns_unknown_for_empty_candidates() {
     );
 }
 
-bool test_config_json_is_loaded() {
+bool test_config_cfg_is_loaded() {
     const std::filesystem::path temp_path =
-        std::filesystem::temp_directory_path() / "fridge_cloud_classifier_config_test.json";
+        std::filesystem::temp_directory_path() / "fridge_cloud_classifier_config_test.cfg";
     {
         std::ofstream output(temp_path);
         output
-            << "{\n"
-            << "  \"provider\": \"mock\",\n"
-            << "  \"endpoint\": \"https://example.invalid/fine-grained\",\n"
-            << "  \"api_key\": \"demo-key\",\n"
-            << "  \"model_name\": \"generic-fg-v2\",\n"
-            << "  \"timeout_ms\": 2300,\n"
-            << "  \"max_retries\": 3,\n"
-            << "  \"enable_base64_image\": true\n"
-            << "}\n";
+            << "# module 3 test config\n"
+            << "provider = OpenAI\n"
+            << "endpoint = https://example.invalid/fine-grained # inline comment should be ignored\n"
+            << "api_key = demo-key\n"
+            << "model_name = generic-fg-v2\n"
+            << "timeout_ms = 2300\n"
+            << "max_retries = 3\n"
+            << "enable_base64_image = yes\n"
+            << "llm_confidence_threshold = 0.81\n"
+            << "prompt_template = \"Line1\\nLine2 {coarse_class} {candidate_labels}\"\n";
     }
 
     fridge::cloud::RecognizerClientConfig config;
@@ -80,14 +81,16 @@ bool test_config_json_is_loaded() {
 
     return expect(
         ok &&
-        config.provider == "mock" &&
+        config.provider == "openai" &&
         config.endpoint == "https://example.invalid/fine-grained" &&
         config.api_key == "demo-key" &&
         config.model_name == "generic-fg-v2" &&
         config.timeout_ms == 2300 &&
         config.max_retries == 3 &&
-        config.enable_base64_image,
-        "cloud classifier JSON config should load provider-neutral settings"
+        config.enable_base64_image &&
+        config.llm_confidence_threshold == 0.81 &&
+        config.prompt_template == "Line1\nLine2 {coarse_class} {candidate_labels}",
+        "cloud classifier cfg config should load provider-neutral settings"
     );
 }
 
@@ -142,15 +145,103 @@ bool test_call_log_is_sanitized() {
     );
 }
 
+bool test_low_confidence_result_is_downgraded_to_unknown() {
+    fridge::cloud::FineGrainedRecognizerClient client(
+        fridge::cloud::RecognizerClientConfig{
+            "mock",
+            "",
+            "",
+            "",
+            1500,
+            0,
+            false,
+            0.80
+        }
+    );
+
+    const auto result = client.recognizeCrop("crop.jpg", "fruit", {"banana", "orange"});
+    return expect(
+        result.is_unknown &&
+        result.name == "unknown" &&
+        result.category == "fruit" &&
+        result.provider == "mock" &&
+        result.reason.find("below llm_confidence_threshold") != std::string::npos,
+        "results below llm_confidence_threshold should be downgraded to unknown"
+    );
+}
+
+bool test_candidate_labels_are_normalized_for_count_and_matching() {
+    fridge::cloud::FineGrainedRecognizerClient client;
+    const auto result = client.recognizeCrop(
+        "apple-slice.png",
+        "fruit",
+        {" apple ", "APPLE", "", "orange"}
+    );
+
+    return expect(
+        result.name == "apple" &&
+        !result.is_unknown &&
+        client.lastCallLog().candidate_count == 2,
+        "candidate labels should be trimmed, deduplicated, and counted after normalization"
+    );
+}
+
+bool test_invalid_input_updates_failure_call_log() {
+    fridge::cloud::FineGrainedRecognizerClient client;
+    try {
+        (void)client.recognizeCrop("", "fruit", {"apple"});
+        return expect(false, "empty image path should throw an exception");
+    } catch (const std::exception&) {
+    }
+
+    return expect(
+        client.lastCallLog().provider == "mock" &&
+        client.lastCallLog().coarse_class == "fruit" &&
+        client.lastCallLog().candidate_count == 1 &&
+        !client.lastCallLog().success &&
+        !client.lastCallLog().parse_success,
+        "failed recognizer calls should still publish a sanitized failure call log"
+    );
+}
+
+bool test_remote_mode_without_curl_fails_cleanly() {
+    fridge::cloud::FineGrainedRecognizerClient client(
+        fridge::cloud::RecognizerClientConfig{
+            "custom",
+            "https://example.invalid/fine-grained",
+            "",
+            "generic-fg-v2",
+            1500,
+            0,
+            false,
+            0.75
+        }
+    );
+
+    try {
+        (void)client.recognizeCrop("crop.jpg", "fruit", {"apple", "orange"});
+        return expect(false, "non-mock mode should fail cleanly when libcurl is unavailable");
+    } catch (const std::exception& ex) {
+        return expect(
+            std::string(ex.what()).find("Remote HTTPS mode requires libcurl") != std::string::npos,
+            "remote mode without libcurl should produce a clear runtime error"
+        );
+    }
+}
+
 }  // namespace
 
 int main() {
     const std::vector<std::function<bool()>> tests = {
         test_mock_uses_filename_hint,
         test_mock_returns_unknown_for_empty_candidates,
-        test_config_json_is_loaded,
+        test_config_cfg_is_loaded,
         test_result_serializes_to_required_json_fields,
         test_call_log_is_sanitized,
+        test_low_confidence_result_is_downgraded_to_unknown,
+        test_candidate_labels_are_normalized_for_count_and_matching,
+        test_invalid_input_updates_failure_call_log,
+        test_remote_mode_without_curl_fails_cleanly,
     };
 
     int failed = 0;

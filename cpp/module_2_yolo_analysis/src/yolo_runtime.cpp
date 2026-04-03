@@ -1,12 +1,34 @@
 #include "yolo_runtime.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
+#include <cstdint>
 #include <cmath>
 #include <exception>
 #include <fstream>
+#include <limits>
+#include <sstream>
 #include <string>
 #include <utility>
+
+#ifdef FRIDGE_USE_OPENCV
+#include <opencv2/dnn.hpp>
+#endif
+
+#ifdef FRIDGE_USE_ONNXRUNTIME
+#if defined(__has_include)
+#if __has_include(<onnxruntime_cxx_api.h>)
+#include <onnxruntime_cxx_api.h>
+#elif __has_include(<onnxruntime/core/session/onnxruntime_cxx_api.h>)
+#include <onnxruntime/core/session/onnxruntime_cxx_api.h>
+#else
+#error "ONNX Runtime headers were not found in the configured include path."
+#endif
+#else
+#include <onnxruntime_cxx_api.h>
+#endif
+#endif
 
 namespace fridge {
 
@@ -177,6 +199,692 @@ BoundingBox scale_box_to_frame(
     const int bottom = clamp_int(static_cast<int>(std::ceil(y2 * scale_y)), 0, source_frame.height);
     return BoundingBox{left, top, std::max(0, right - left), std::max(0, bottom - top)};
 }
+
+struct RuntimeDetectionRow {
+    float x1 = 0.0F;
+    float y1 = 0.0F;
+    float x2 = 0.0F;
+    float y2 = 0.0F;
+    float score = 0.0F;
+    int class_index = 0;
+};
+
+double compute_iou_xyxy(const RuntimeDetectionRow& lhs, const RuntimeDetectionRow& rhs) {
+    const double left = std::max(static_cast<double>(lhs.x1), static_cast<double>(rhs.x1));
+    const double top = std::max(static_cast<double>(lhs.y1), static_cast<double>(rhs.y1));
+    const double right = std::min(static_cast<double>(lhs.x2), static_cast<double>(rhs.x2));
+    const double bottom = std::min(static_cast<double>(lhs.y2), static_cast<double>(rhs.y2));
+    const double intersection_width = std::max(0.0, right - left);
+    const double intersection_height = std::max(0.0, bottom - top);
+    const double intersection_area = intersection_width * intersection_height;
+    if (intersection_area <= 0.0) {
+        return 0.0;
+    }
+
+    const double lhs_area =
+        std::max(0.0, static_cast<double>(lhs.x2 - lhs.x1)) *
+        std::max(0.0, static_cast<double>(lhs.y2 - lhs.y1));
+    const double rhs_area =
+        std::max(0.0, static_cast<double>(rhs.x2 - rhs.x1)) *
+        std::max(0.0, static_cast<double>(rhs.y2 - rhs.y1));
+    const double denominator = lhs_area + rhs_area - intersection_area;
+    if (denominator <= 0.0) {
+        return 0.0;
+    }
+    return intersection_area / denominator;
+}
+
+struct TensorMatrix {
+    int rows = 0;
+    int columns = 0;
+    std::vector<float> values;
+};
+
+bool transpose_matrix(const TensorMatrix& input, TensorMatrix& output) {
+    if (input.rows <= 0 || input.columns <= 0) {
+        return false;
+    }
+    output.rows = input.columns;
+    output.columns = input.rows;
+    output.values.assign(static_cast<std::size_t>(output.rows * output.columns), 0.0F);
+    for (int row = 0; row < input.rows; ++row) {
+        for (int column = 0; column < input.columns; ++column) {
+            output.values[static_cast<std::size_t>(column * output.columns + row)] =
+                input.values[static_cast<std::size_t>(row * input.columns + column)];
+        }
+    }
+    return true;
+}
+
+bool orient_matrix_columns(const TensorMatrix& input, int expected_columns, TensorMatrix& output) {
+    if (expected_columns <= 0) {
+        return false;
+    }
+    if (input.columns == expected_columns) {
+        output = input;
+        return true;
+    }
+    if (input.rows == expected_columns) {
+        return transpose_matrix(input, output);
+    }
+    return false;
+}
+
+void append_direct_detection_rows(
+    const TensorMatrix& matrix,
+    std::vector<RuntimeDetectionRow>& rows_out
+) {
+    for (int row = 0; row < matrix.rows; ++row) {
+        const std::size_t offset = static_cast<std::size_t>(row * matrix.columns);
+        RuntimeDetectionRow detection;
+        detection.x1 = matrix.values[offset];
+        detection.y1 = matrix.values[offset + 1];
+        detection.x2 = matrix.values[offset + 2];
+        detection.y2 = matrix.values[offset + 3];
+        detection.score = matrix.values[offset + 4];
+        detection.class_index = static_cast<int>(std::lround(static_cast<double>(matrix.values[offset + 5])));
+        rows_out.push_back(detection);
+    }
+}
+
+void append_raw_detection_rows(
+    const TensorMatrix& matrix,
+    const YoloRuntimeConfig& config,
+    std::vector<RuntimeDetectionRow>& rows_out
+) {
+    const int class_count = static_cast<int>(config.class_names.size());
+    const bool has_objectness = matrix.columns == class_count + 5;
+    const int class_offset = has_objectness ? 5 : 4;
+
+    for (int row = 0; row < matrix.rows; ++row) {
+        const std::size_t offset = static_cast<std::size_t>(row * matrix.columns);
+        const float center_x = matrix.values[offset];
+        const float center_y = matrix.values[offset + 1];
+        const float width = matrix.values[offset + 2];
+        const float height = matrix.values[offset + 3];
+        const float objectness = has_objectness ? matrix.values[offset + 4] : 1.0F;
+        if (!std::isfinite(center_x) || !std::isfinite(center_y) ||
+            !std::isfinite(width) || !std::isfinite(height) || !std::isfinite(objectness)) {
+            continue;
+        }
+        if (width <= 0.0F || height <= 0.0F || objectness <= 0.0F) {
+            continue;
+        }
+
+        float best_score = -std::numeric_limits<float>::infinity();
+        int best_class_index = -1;
+        for (int class_index = 0; class_index < class_count; ++class_index) {
+            const float class_score = matrix.values[offset + static_cast<std::size_t>(class_offset + class_index)];
+            if (!std::isfinite(class_score)) {
+                continue;
+            }
+            const float combined_score = objectness * class_score;
+            if (combined_score > best_score) {
+                best_score = combined_score;
+                best_class_index = class_index;
+            }
+        }
+
+        if (best_class_index < 0 || best_score < static_cast<float>(config.score_threshold)) {
+            continue;
+        }
+
+        RuntimeDetectionRow detection;
+        detection.x1 = center_x - (width * 0.5F);
+        detection.y1 = center_y - (height * 0.5F);
+        detection.x2 = center_x + (width * 0.5F);
+        detection.y2 = center_y + (height * 0.5F);
+        detection.score = best_score;
+        detection.class_index = best_class_index;
+        rows_out.push_back(detection);
+    }
+}
+
+bool append_e2e_box_score_label_rows(
+    const TensorMatrix& boxes_matrix,
+    const TensorMatrix& score_label_matrix,
+    std::vector<RuntimeDetectionRow>& rows_out
+) {
+    if (boxes_matrix.rows != score_label_matrix.rows ||
+        boxes_matrix.columns != 4 || score_label_matrix.columns != 2) {
+        return false;
+    }
+
+    for (int row = 0; row < boxes_matrix.rows; ++row) {
+        const std::size_t box_offset = static_cast<std::size_t>(row * boxes_matrix.columns);
+        const std::size_t meta_offset = static_cast<std::size_t>(row * score_label_matrix.columns);
+        RuntimeDetectionRow detection;
+        detection.x1 = boxes_matrix.values[box_offset];
+        detection.y1 = boxes_matrix.values[box_offset + 1];
+        detection.x2 = boxes_matrix.values[box_offset + 2];
+        detection.y2 = boxes_matrix.values[box_offset + 3];
+        detection.score = score_label_matrix.values[meta_offset];
+        detection.class_index =
+            static_cast<int>(std::lround(static_cast<double>(score_label_matrix.values[meta_offset + 1])));
+        rows_out.push_back(detection);
+    }
+    return true;
+}
+
+bool append_e2e_box_score_and_label_rows(
+    const TensorMatrix& boxes_matrix,
+    const TensorMatrix& scores_matrix,
+    const TensorMatrix& labels_matrix,
+    std::vector<RuntimeDetectionRow>& rows_out
+) {
+    if (boxes_matrix.rows != scores_matrix.rows || boxes_matrix.rows != labels_matrix.rows ||
+        boxes_matrix.columns != 4 || scores_matrix.columns != 1 || labels_matrix.columns != 1) {
+        return false;
+    }
+
+    for (int row = 0; row < boxes_matrix.rows; ++row) {
+        const std::size_t box_offset = static_cast<std::size_t>(row * boxes_matrix.columns);
+        RuntimeDetectionRow detection;
+        detection.x1 = boxes_matrix.values[box_offset];
+        detection.y1 = boxes_matrix.values[box_offset + 1];
+        detection.x2 = boxes_matrix.values[box_offset + 2];
+        detection.y2 = boxes_matrix.values[box_offset + 3];
+        detection.score = scores_matrix.values[static_cast<std::size_t>(row)];
+        detection.class_index = static_cast<int>(std::lround(static_cast<double>(labels_matrix.values[static_cast<std::size_t>(row)])));
+        rows_out.push_back(detection);
+    }
+    return true;
+}
+
+bool append_e2e_box_and_class_rows(
+    const TensorMatrix& boxes_matrix,
+    const TensorMatrix& class_matrix,
+    const YoloRuntimeConfig& config,
+    std::vector<RuntimeDetectionRow>& rows_out,
+    bool has_objectness
+) {
+    if (boxes_matrix.rows != class_matrix.rows || boxes_matrix.columns != 4) {
+        return false;
+    }
+
+    const int class_count = static_cast<int>(config.class_names.size());
+    const int expected_columns = has_objectness ? class_count + 1 : class_count;
+    if (class_matrix.columns != expected_columns) {
+        return false;
+    }
+
+    for (int row = 0; row < boxes_matrix.rows; ++row) {
+        const std::size_t box_offset = static_cast<std::size_t>(row * boxes_matrix.columns);
+        const std::size_t class_offset = static_cast<std::size_t>(row * class_matrix.columns);
+        const float objectness = has_objectness ? class_matrix.values[class_offset] : 1.0F;
+        if (!std::isfinite(objectness) || objectness <= 0.0F) {
+            continue;
+        }
+
+        float best_score = -std::numeric_limits<float>::infinity();
+        int best_class_index = -1;
+        for (int class_index = 0; class_index < class_count; ++class_index) {
+            const float class_score = class_matrix.values[class_offset + static_cast<std::size_t>(class_index + (has_objectness ? 1 : 0))];
+            if (!std::isfinite(class_score)) {
+                continue;
+            }
+            const float combined_score = objectness * class_score;
+            if (combined_score > best_score) {
+                best_score = combined_score;
+                best_class_index = class_index;
+            }
+        }
+
+        if (best_class_index < 0 || best_score < static_cast<float>(config.score_threshold)) {
+            continue;
+        }
+
+        RuntimeDetectionRow detection;
+        detection.x1 = boxes_matrix.values[box_offset];
+        detection.y1 = boxes_matrix.values[box_offset + 1];
+        detection.x2 = boxes_matrix.values[box_offset + 2];
+        detection.y2 = boxes_matrix.values[box_offset + 3];
+        detection.score = best_score;
+        detection.class_index = best_class_index;
+        rows_out.push_back(detection);
+    }
+    return true;
+}
+
+bool append_matrix_detections(
+    const TensorMatrix& input_matrix,
+    const YoloRuntimeConfig& config,
+    std::vector<RuntimeDetectionRow>& rows_out
+) {
+    TensorMatrix normalized;
+    if (orient_matrix_columns(input_matrix, config.output_columns, normalized)) {
+        append_direct_detection_rows(normalized, rows_out);
+        return true;
+    }
+
+    const int class_count = static_cast<int>(config.class_names.size());
+    if (orient_matrix_columns(input_matrix, class_count + 4, normalized) ||
+        orient_matrix_columns(input_matrix, class_count + 5, normalized)) {
+        append_raw_detection_rows(normalized, config, rows_out);
+        return true;
+    }
+    return false;
+}
+
+bool append_tensor_matrices_as_detections(
+    const std::vector<TensorMatrix>& matrices,
+    const YoloRuntimeConfig& config,
+    std::vector<RuntimeDetectionRow>& rows_out,
+    std::string& error_message
+) {
+    std::size_t rows_before = rows_out.size();
+    for (const auto& matrix : matrices) {
+        append_matrix_detections(matrix, config, rows_out);
+    }
+    if (rows_out.size() > rows_before) {
+        return true;
+    }
+
+    for (std::size_t box_index = 0; box_index < matrices.size(); ++box_index) {
+        TensorMatrix boxes_matrix;
+        if (!orient_matrix_columns(matrices[box_index], 4, boxes_matrix)) {
+            continue;
+        }
+
+        for (std::size_t meta_index = 0; meta_index < matrices.size(); ++meta_index) {
+            if (meta_index == box_index) {
+                continue;
+            }
+
+            TensorMatrix score_label_matrix;
+            if (orient_matrix_columns(matrices[meta_index], 2, score_label_matrix)) {
+                if (append_e2e_box_score_label_rows(boxes_matrix, score_label_matrix, rows_out)) {
+                    return true;
+                }
+            }
+
+            TensorMatrix class_matrix;
+            const int class_count = static_cast<int>(config.class_names.size());
+            if (orient_matrix_columns(matrices[meta_index], class_count, class_matrix)) {
+                if (append_e2e_box_and_class_rows(boxes_matrix, class_matrix, config, rows_out, false)) {
+                    return true;
+                }
+            }
+            if (orient_matrix_columns(matrices[meta_index], class_count + 1, class_matrix)) {
+                if (append_e2e_box_and_class_rows(boxes_matrix, class_matrix, config, rows_out, true)) {
+                    return true;
+                }
+            }
+
+            TensorMatrix scores_matrix;
+            if (!orient_matrix_columns(matrices[meta_index], 1, scores_matrix)) {
+                continue;
+            }
+
+            for (std::size_t label_index = 0; label_index < matrices.size(); ++label_index) {
+                if (label_index == box_index || label_index == meta_index) {
+                    continue;
+                }
+                TensorMatrix labels_matrix;
+                if (orient_matrix_columns(matrices[label_index], 1, labels_matrix) &&
+                    append_e2e_box_score_and_label_rows(boxes_matrix, scores_matrix, labels_matrix, rows_out)) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    std::ostringstream message;
+    message << "Unsupported YOLO ONNX output layout. Parsed tensor matrices:";
+    for (const auto& matrix : matrices) {
+        message << " " << matrix.rows << "x" << matrix.columns;
+    }
+    message << ". Expected direct Nx" << config.output_columns
+            << ", raw YOLO rows, or end-to-end box/score/class tensors.";
+    error_message = message.str();
+    return false;
+}
+
+std::vector<RuntimeDetectionRow> apply_classwise_nms(
+    std::vector<RuntimeDetectionRow> detections,
+    const YoloRuntimeConfig& config
+) {
+    std::stable_sort(
+        detections.begin(),
+        detections.end(),
+        [](const RuntimeDetectionRow& lhs, const RuntimeDetectionRow& rhs) {
+            if (lhs.class_index != rhs.class_index) {
+                return lhs.class_index < rhs.class_index;
+            }
+            return lhs.score > rhs.score;
+        }
+    );
+
+    std::vector<RuntimeDetectionRow> kept;
+    kept.reserve(detections.size());
+    for (const auto& detection : detections) {
+        if (!std::isfinite(detection.score) || detection.score < static_cast<float>(config.score_threshold)) {
+            continue;
+        }
+        if (detection.class_index < 0 || detection.class_index >= static_cast<int>(config.class_names.size())) {
+            continue;
+        }
+        if (detection.x2 <= detection.x1 || detection.y2 <= detection.y1) {
+            continue;
+        }
+
+        bool suppressed = false;
+        for (const auto& existing : kept) {
+            if (existing.class_index != detection.class_index) {
+                continue;
+            }
+            if (compute_iou_xyxy(existing, detection) >= config.nms_threshold) {
+                suppressed = true;
+                break;
+            }
+        }
+        if (!suppressed) {
+            kept.push_back(detection);
+        }
+    }
+    return kept;
+}
+
+YoloOnnxOutput build_normalized_output_from_rows(
+    std::vector<RuntimeDetectionRow> detection_rows,
+    const YoloRuntimeConfig& config,
+    std::string& error_message
+) {
+    const auto filtered_rows = apply_classwise_nms(std::move(detection_rows), config);
+
+    YoloOnnxOutput output;
+    output.rows = static_cast<int>(filtered_rows.size());
+    output.columns = config.output_columns;
+    output.values.reserve(filtered_rows.size() * static_cast<std::size_t>(config.output_columns));
+    for (const auto& detection : filtered_rows) {
+        output.values.push_back(detection.x1);
+        output.values.push_back(detection.y1);
+        output.values.push_back(detection.x2);
+        output.values.push_back(detection.y2);
+        output.values.push_back(detection.score);
+        output.values.push_back(static_cast<float>(detection.class_index));
+    }
+    error_message.clear();
+    return output;
+}
+
+#ifdef FRIDGE_USE_OPENCV
+std::vector<float> copy_tensor_values_as_float(const cv::Mat& tensor) {
+    cv::Mat float_tensor;
+    if (tensor.depth() == CV_32F) {
+        float_tensor = tensor.isContinuous() ? tensor : tensor.clone();
+    } else {
+        tensor.convertTo(float_tensor, CV_32F);
+        if (!float_tensor.isContinuous()) {
+            float_tensor = float_tensor.clone();
+        }
+    }
+
+    const auto* begin = reinterpret_cast<const float*>(float_tensor.datastart);
+    const auto* end = reinterpret_cast<const float*>(float_tensor.dataend);
+    return std::vector<float>(begin, end);
+}
+
+bool flatten_output_tensor_to_matrix(
+    const cv::Mat& tensor,
+    TensorMatrix& matrix,
+    std::string& error_message
+) {
+    if (tensor.empty()) {
+        error_message = "OpenCV DNN returned an empty output tensor";
+        return false;
+    }
+
+    if (tensor.dims == 2) {
+        matrix.rows = tensor.rows;
+        matrix.columns = tensor.cols;
+        matrix.values = copy_tensor_values_as_float(tensor);
+        return true;
+    }
+
+    if (tensor.dims == 3 && tensor.size[0] == 1) {
+        matrix.rows = tensor.size[1];
+        matrix.columns = tensor.size[2];
+        matrix.values = copy_tensor_values_as_float(tensor);
+        return true;
+    }
+
+    if (tensor.dims == 4 && tensor.size[0] == 1 && tensor.size[1] == 1) {
+        matrix.rows = tensor.size[2];
+        matrix.columns = tensor.size[3];
+        matrix.values = copy_tensor_values_as_float(tensor);
+        return true;
+    }
+
+    std::ostringstream message;
+    message << "Unsupported ONNX output tensor rank/layout: dims=" << tensor.dims;
+    for (int index = 0; index < tensor.dims; ++index) {
+        message << (index == 0 ? " [" : "x") << tensor.size[index];
+    }
+    if (tensor.dims > 0) {
+        message << "]";
+    }
+    error_message = message.str();
+    return false;
+}
+
+YoloOnnxOutput build_normalized_output(
+    const std::vector<cv::Mat>& tensors,
+    const YoloRuntimeConfig& config,
+    std::string& error_message
+) {
+    std::vector<TensorMatrix> matrices;
+    matrices.reserve(tensors.size());
+    for (const auto& tensor : tensors) {
+        TensorMatrix matrix;
+        if (!flatten_output_tensor_to_matrix(tensor, matrix, error_message)) {
+            return {};
+        }
+        matrices.push_back(std::move(matrix));
+    }
+
+    std::vector<RuntimeDetectionRow> detection_rows;
+    if (!append_tensor_matrices_as_detections(matrices, config, detection_rows, error_message)) {
+        return {};
+    }
+
+    return build_normalized_output_from_rows(std::move(detection_rows), config, error_message);
+}
+#endif
+
+#ifdef FRIDGE_USE_ONNXRUNTIME
+Ort::Env& ort_environment() {
+    static Ort::Env environment(ORT_LOGGING_LEVEL_WARNING, "fridge_yolo_runtime");
+    return environment;
+}
+
+Ort::SessionOptions make_ort_session_options() {
+    Ort::SessionOptions options;
+    options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+    options.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+    options.SetIntraOpNumThreads(1);
+    return options;
+}
+
+std::basic_string<ORTCHAR_T> path_to_ort_string(const std::filesystem::path& path) {
+#ifdef _WIN32
+    return path.native();
+#else
+    return path.string();
+#endif
+}
+
+std::vector<float> copy_ort_tensor_values(const Ort::Value& tensor, ONNXTensorElementDataType element_type) {
+    const std::size_t value_count = tensor.GetTensorTypeAndShapeInfo().GetElementCount();
+    std::vector<float> values(value_count, 0.0F);
+
+    switch (element_type) {
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT: {
+        const float* data = tensor.GetTensorData<float>();
+        std::copy(data, data + value_count, values.begin());
+        return values;
+    }
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE: {
+        const double* data = tensor.GetTensorData<double>();
+        std::transform(data, data + value_count, values.begin(), [](double value) {
+            return static_cast<float>(value);
+        });
+        return values;
+    }
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64: {
+        const std::int64_t* data = tensor.GetTensorData<std::int64_t>();
+        std::transform(data, data + value_count, values.begin(), [](std::int64_t value) {
+            return static_cast<float>(value);
+        });
+        return values;
+    }
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32: {
+        const std::int32_t* data = tensor.GetTensorData<std::int32_t>();
+        std::transform(data, data + value_count, values.begin(), [](std::int32_t value) {
+            return static_cast<float>(value);
+        });
+        return values;
+    }
+    default:
+        return {};
+    }
+}
+
+bool flatten_output_tensor_to_matrix(
+    const Ort::Value& tensor,
+    TensorMatrix& matrix,
+    std::string& error_message
+) {
+    if (!tensor.IsTensor()) {
+        error_message = "ONNX Runtime returned a non-tensor output";
+        return false;
+    }
+
+    const auto type_info = tensor.GetTensorTypeAndShapeInfo();
+    const ONNXTensorElementDataType element_type = type_info.GetElementType();
+    matrix.values = copy_ort_tensor_values(tensor, element_type);
+    if (matrix.values.empty() && type_info.GetElementCount() > 0U) {
+        error_message = "ONNX Runtime returned an unsupported tensor element type";
+        return false;
+    }
+
+    const std::vector<std::int64_t> dims = type_info.GetShape();
+    if (dims.size() == 2) {
+        matrix.rows = static_cast<int>(dims[0]);
+        matrix.columns = static_cast<int>(dims[1]);
+        return true;
+    }
+    if (dims.size() == 3 && dims[0] == 1) {
+        matrix.rows = static_cast<int>(dims[1]);
+        matrix.columns = static_cast<int>(dims[2]);
+        return true;
+    }
+    if (dims.size() == 4 && dims[0] == 1 && dims[1] == 1) {
+        matrix.rows = static_cast<int>(dims[2]);
+        matrix.columns = static_cast<int>(dims[3]);
+        return true;
+    }
+
+    std::ostringstream message;
+    message << "Unsupported ONNX Runtime output tensor rank/layout:";
+    for (const auto dim : dims) {
+        message << " " << dim;
+    }
+    error_message = message.str();
+    return false;
+}
+
+bool inspect_onnxruntime_model(
+    const std::filesystem::path& model_path,
+    std::string& error_message
+) {
+    try {
+        const auto ort_model_path = path_to_ort_string(model_path);
+        Ort::Session session(ort_environment(), ort_model_path.c_str(), make_ort_session_options());
+        if (session.GetInputCount() == 0) {
+            error_message = "ONNX Runtime opened the model but no input tensor was exposed.";
+            return false;
+        }
+        return true;
+    } catch (const Ort::Exception& ex) {
+        error_message = "Failed to initialize ONNX Runtime for ONNX model: " + std::string(ex.what());
+        return false;
+    }
+}
+
+YoloOnnxOutput run_onnxruntime_model(
+    const std::filesystem::path& model_path,
+    const YoloRuntimeConfig& config,
+    const YoloModelInput& prepared_input,
+    std::string& error_message
+) {
+    const auto ort_model_path = path_to_ort_string(model_path);
+
+    try {
+        Ort::Session session(ort_environment(), ort_model_path.c_str(), make_ort_session_options());
+        Ort::AllocatorWithDefaultOptions allocator;
+
+        auto input_name = session.GetInputNameAllocated(0, allocator);
+        std::vector<const char*> input_names{input_name.get()};
+
+        std::vector<Ort::AllocatedStringPtr> output_name_storage;
+        std::vector<const char*> output_names;
+        output_name_storage.reserve(session.GetOutputCount());
+        output_names.reserve(session.GetOutputCount());
+        for (std::size_t index = 0; index < session.GetOutputCount(); ++index) {
+            output_name_storage.push_back(session.GetOutputNameAllocated(index, allocator));
+            output_names.push_back(output_name_storage.back().get());
+        }
+
+        const std::array<std::int64_t, 4> input_shape{
+            1,
+            prepared_input.channels,
+            prepared_input.height,
+            prepared_input.width,
+        };
+        Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+        Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
+            memory_info,
+            const_cast<float*>(prepared_input.values.data()),
+            prepared_input.values.size(),
+            input_shape.data(),
+            input_shape.size()
+        );
+
+        auto outputs = session.Run(
+            Ort::RunOptions{nullptr},
+            input_names.data(),
+            &input_tensor,
+            1,
+            output_names.data(),
+            output_names.size()
+        );
+        if (outputs.empty()) {
+            error_message = "ONNX Runtime did not return any output tensors";
+            return {};
+        }
+
+        std::vector<TensorMatrix> matrices;
+        matrices.reserve(outputs.size());
+        for (const auto& output : outputs) {
+            TensorMatrix matrix;
+            if (!flatten_output_tensor_to_matrix(output, matrix, error_message)) {
+                return {};
+            }
+            matrices.push_back(std::move(matrix));
+        }
+
+        std::vector<RuntimeDetectionRow> detection_rows;
+        if (!append_tensor_matrices_as_detections(matrices, config, detection_rows, error_message)) {
+            return {};
+        }
+        return build_normalized_output_from_rows(std::move(detection_rows), config, error_message);
+    } catch (const Ort::Exception& ex) {
+        error_message = "ONNX Runtime inference failed: " + std::string(ex.what());
+        return {};
+    }
+}
+#endif
 
 }  // namespace
 
@@ -379,6 +1087,7 @@ YoloRuntimeInfo YoloRuntime::inspect(const std::filesystem::path& repo_root) con
     info.input_height = config_.input_height;
     info.score_threshold = config_.score_threshold;
     info.nms_threshold = config_.nms_threshold;
+    info.output_columns = config_.output_columns;
     info.resolved_model_path = resolve_model_path(config_.model_path, repo_root);
     info.model_exists = std::filesystem::exists(info.resolved_model_path);
     info.model_format = detect_format(info.resolved_model_path);
@@ -397,16 +1106,121 @@ YoloRuntimeInfo YoloRuntime::inspect(const std::filesystem::path& repo_root) con
     }
 
     if (info.model_format == YoloModelFormat::Onnx) {
+#ifdef FRIDGE_USE_ONNXRUNTIME
+        if (inspect_onnxruntime_model(info.resolved_model_path, info.message)) {
+            info.can_run_in_current_cpp_runtime = true;
+            info.message =
+                "Detected an ONNX model asset. Current C++ runtime can execute it through ONNX Runtime.";
+            return info;
+        }
+#endif
+#ifdef FRIDGE_USE_OPENCV
+        try {
+            cv::dnn::Net net = cv::dnn::readNetFromONNX(info.resolved_model_path.string());
+            if (net.empty()) {
+                info.can_run_in_current_cpp_runtime = false;
+                info.message = "OpenCV DNN could not initialize the ONNX model backend.";
+                return info;
+            }
+
+            info.can_run_in_current_cpp_runtime = true;
+            info.message =
+                "Detected an ONNX model asset. Current C++ runtime can execute it through OpenCV DNN.";
+            return info;
+        } catch (const cv::Exception& ex) {
+            info.can_run_in_current_cpp_runtime = false;
+            info.message = "Failed to initialize OpenCV DNN for ONNX model: " + std::string(ex.what());
+            return info;
+        }
+#else
         info.can_run_in_current_cpp_runtime = false;
         info.message =
             "Detected an ONNX model asset. Module 2 preprocessing, output decoding, and diff analysis are ready, "
             "but the ONNX graph execution backend still needs to be connected in C++.";
         return info;
+#endif
     }
 
     info.message =
         "Unsupported YOLO model format for current C++ runtime: " + info.resolved_model_path.extension().string();
     return info;
+}
+
+YoloOnnxOutput YoloRuntime::run(
+    const GrayFrame& frame,
+    const std::filesystem::path& repo_root,
+    std::string& error_message
+) const {
+    error_message.clear();
+
+    if (frame.empty()) {
+        error_message = "Cannot run YOLO inference on an empty frame";
+        return {};
+    }
+
+    const auto info = inspect(repo_root);
+    if (!info.can_run_in_current_cpp_runtime) {
+        error_message = info.message;
+        return {};
+    }
+
+    const YoloModelInput prepared = prepare_yolo_model_input(frame, config_);
+    if (prepared.height <= 0 || prepared.width <= 0 || prepared.values.empty()) {
+        error_message = "Failed to prepare YOLO model input";
+        return {};
+    }
+
+#ifdef FRIDGE_USE_ONNXRUNTIME
+    std::string ort_error;
+    YoloOnnxOutput ort_output = run_onnxruntime_model(info.resolved_model_path, config_, prepared, ort_error);
+    if (ort_error.empty()) {
+        return ort_output;
+    }
+#endif
+
+#ifdef FRIDGE_USE_OPENCV
+    const int blob_sizes[] = {1, prepared.channels, prepared.height, prepared.width};
+    cv::Mat blob(4, blob_sizes, CV_32F);
+    std::copy(prepared.values.begin(), prepared.values.end(), reinterpret_cast<float*>(blob.data));
+
+    try {
+        cv::dnn::Net net = cv::dnn::readNetFromONNX(info.resolved_model_path.string());
+        if (net.empty()) {
+            error_message = "OpenCV DNN returned an empty network for model: " + info.resolved_model_path.string();
+            return {};
+        }
+
+        net.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
+        net.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
+        net.setInput(blob);
+
+        std::vector<cv::Mat> outputs;
+        const std::vector<cv::String> output_names = net.getUnconnectedOutLayersNames();
+        if (output_names.empty()) {
+            outputs.push_back(net.forward());
+        } else {
+            net.forward(outputs, output_names);
+        }
+        if (outputs.empty()) {
+            error_message = "OpenCV DNN did not return any output tensors";
+            return {};
+        }
+
+        return build_normalized_output(outputs, config_, error_message);
+    } catch (const cv::Exception& ex) {
+        error_message = "OpenCV DNN inference failed: " + std::string(ex.what());
+        return {};
+    }
+#else
+    (void)repo_root;
+#ifdef FRIDGE_USE_ONNXRUNTIME
+    error_message = ort_error;
+#else
+    error_message =
+        "YOLO ONNX inference requires an OpenCV-enabled build with DNN support.";
+#endif
+    return {};
+#endif
 }
 
 }  // namespace fridge

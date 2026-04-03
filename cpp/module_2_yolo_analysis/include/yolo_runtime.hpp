@@ -107,6 +107,7 @@ public:
     explicit YoloRuntime(YoloRuntimeConfig config = {});
 
     YoloRuntimeInfo inspect(const std::filesystem::path& repo_root) const;
+    YoloOnnxOutput run(const GrayFrame& frame, const std::filesystem::path& repo_root, std::string& error_message) const;
 
 private:
     YoloRuntimeConfig config_;

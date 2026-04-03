@@ -111,18 +111,25 @@ struct SessionPaths {
     std::filesystem::path run_manifest_path;
 };
 
+struct CropArtifactRecord {
+    CropRequest request;
+    std::string output_path;
+};
+
 struct Module2Execution {
     bool success = false;
     std::string failure_reason;
     YoloDiffResult result;
     std::vector<YoloDetection> before_detections;
     std::vector<YoloDetection> after_detections;
+    std::vector<CropArtifactRecord> crop_artifacts;
 };
 
 struct LatestEventState {
     bool has_event = false;
     bool capture_valid = false;
     bool stage2_skipped = false;
+    bool stage2_success = false;
     bool fallback_used = false;
     std::string fallback_reason;
     std::string session_id;
@@ -134,7 +141,11 @@ struct LatestEventState {
     std::string pipeline_mode = "full_chain";
     std::string session_dir;
     std::string report_path;
+    std::string stage2_result_path;
+    std::string final_event_path;
+    std::string crops_dir;
     std::string timestamp;
+    std::size_t crop_artifact_count = 0;
 };
 
 std::filesystem::path cpp_source_dir() {
@@ -458,6 +469,8 @@ std::string build_latest_run_manifest_json(
     const std::filesystem::path& session_dir
 );
 std::string build_placeholder_latest_event_json();
+std::string build_placeholder_latest_stage2_json();
+std::string build_placeholder_latest_final_event_json();
 bool initialize_socket_runtime(std::string& error_message);
 void cleanup_socket_runtime();
 void close_socket_handle(SocketHandle socket_handle);
@@ -842,6 +855,20 @@ std::string build_placeholder_latest_event_json() {
            "}\n";
 }
 
+std::string build_placeholder_latest_stage2_json() {
+    return "{\n"
+           "  \"status\": \"waiting\",\n"
+           "  \"message\": \"stage2 result is not available until the first completed event\"\n"
+           "}\n";
+}
+
+std::string build_placeholder_latest_final_event_json() {
+    return "{\n"
+           "  \"status\": \"waiting\",\n"
+           "  \"message\": \"final event json is not available until the first completed event\"\n"
+           "}\n";
+}
+
 class SharedFrameBuffer {
 public:
     void push(FramePacket packet) {
@@ -919,6 +946,22 @@ std::string crop_request_to_json(const CropRequest& request) {
     return output.str();
 }
 
+std::string crop_artifact_to_json(const CropArtifactRecord& artifact) {
+    std::ostringstream output;
+    output << "{\n"
+           << "      \"source_frame\": \"" << escape_json(artifact.request.source_frame) << "\",\n"
+           << "      \"coarse_class\": \"" << escape_json(artifact.request.coarse_class) << "\",\n"
+           << "      \"path\": \"" << escape_json(artifact.output_path) << "\",\n"
+           << "      \"bbox\": {\n"
+           << "        \"x\": " << artifact.request.bbox.x << ",\n"
+           << "        \"y\": " << artifact.request.bbox.y << ",\n"
+           << "        \"width\": " << artifact.request.bbox.width << ",\n"
+           << "        \"height\": " << artifact.request.bbox.height << "\n"
+           << "      }\n"
+           << "    }";
+    return output.str();
+}
+
 std::string match_to_json(const DetectionMatch& match) {
     std::ostringstream output;
     output << "{\n"
@@ -976,6 +1019,8 @@ std::string build_module2_result_json(
            << json_array_from_objects<DetectionMatch>(execution.result.partial_candidates, match_to_json) << ",\n"
            << "  \"crop_requests\": "
            << json_array_from_objects<CropRequest>(execution.result.crop_requests, crop_request_to_json) << ",\n"
+           << "  \"crop_artifacts\": "
+           << json_array_from_objects<CropArtifactRecord>(execution.crop_artifacts, crop_artifact_to_json) << ",\n"
            << "  \"review_reason\": \"" << escape_json(review_reason) << "\"\n"
            << "}\n";
     return output.str();
@@ -1203,6 +1248,8 @@ public:
         FrameProvider frame_provider,
         TextProvider status_provider,
         TextProvider latest_event_provider,
+        TextProvider latest_stage2_provider,
+        TextProvider latest_final_event_provider,
         TextProvider html_provider
     )
         : bind_host_(std::move(bind_host)),
@@ -1210,6 +1257,8 @@ public:
           frame_provider_(std::move(frame_provider)),
           status_provider_(std::move(status_provider)),
           latest_event_provider_(std::move(latest_event_provider)),
+          latest_stage2_provider_(std::move(latest_stage2_provider)),
+          latest_final_event_provider_(std::move(latest_final_event_provider)),
           html_provider_(std::move(html_provider)) {}
 
     ~LivePreviewPublisher() {
@@ -1394,6 +1443,16 @@ private:
             close_socket_handle(socket_handle);
             return;
         }
+        if (target == "/latest_stage2.json") {
+            send_text_response(socket_handle, "application/json; charset=utf-8", latest_stage2_provider_());
+            close_socket_handle(socket_handle);
+            return;
+        }
+        if (target == "/latest_final_event.json") {
+            send_text_response(socket_handle, "application/json; charset=utf-8", latest_final_event_provider_());
+            close_socket_handle(socket_handle);
+            return;
+        }
         if (target == "/live.mjpeg") {
             stream_live_mjpeg(socket_handle);
             close_socket_handle(socket_handle);
@@ -1430,6 +1489,8 @@ private:
     FrameProvider frame_provider_;
     TextProvider status_provider_;
     TextProvider latest_event_provider_;
+    TextProvider latest_stage2_provider_;
+    TextProvider latest_final_event_provider_;
     TextProvider html_provider_;
     std::atomic<bool> running_{false};
     SocketHandle listen_socket_ = kInvalidSocket;
@@ -1629,6 +1690,8 @@ private:
     bool load_configs(std::string& error_message);
     std::string build_status_json() const;
     std::string build_latest_event_json() const;
+    std::string build_latest_stage2_json() const;
+    std::string build_latest_final_event_json() const;
     std::string build_index_html() const;
     void remember_frame_packet(const FramePacket& packet);
     std::optional<FramePacket> find_frame_packet(int sequence) const;
@@ -1637,11 +1700,13 @@ private:
         const std::string& session_id,
         const EventResult& stage1_event,
         const GrayFrame& before_frame,
-        const GrayFrame& after_frame
+        const GrayFrame& after_frame,
+        const std::filesystem::path& before_frame_path,
+        const std::filesystem::path& after_frame_path
     ) const;
     bool write_crop_artifacts(
         const SessionPaths& paths,
-        const Module2Execution& execution,
+        Module2Execution& execution,
         const GrayFrame& before_frame,
         const GrayFrame& after_frame,
         std::string& error_message
@@ -1664,6 +1729,8 @@ private:
     bool stage1_ready_ = false;
     bool stage2_ready_ = false;
     std::string latest_event_json_ = build_placeholder_latest_event_json();
+    std::string latest_stage2_json_ = build_placeholder_latest_stage2_json();
+    std::string latest_final_event_json_ = build_placeholder_latest_final_event_json();
     LatestEventState latest_event_state_;
     std::string run_started_utc_;
     std::chrono::steady_clock::time_point run_started_steady_{};
@@ -1770,24 +1837,54 @@ std::string Module12RealtimeHarness::Impl::build_latest_event_json() const {
     return latest_event_json_;
 }
 
+std::string Module12RealtimeHarness::Impl::build_latest_stage2_json() const {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    return latest_stage2_json_;
+}
+
+std::string Module12RealtimeHarness::Impl::build_latest_final_event_json() const {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    return latest_final_event_json_;
+}
+
 std::string Module12RealtimeHarness::Impl::build_index_html() const {
     std::ostringstream output;
     output << "<!doctype html>\n"
            << "<html><head><meta charset=\"utf-8\"><title>Module12 Live Harness</title>"
            << "<style>body{font-family:sans-serif;background:#111;color:#eee;margin:0;padding:20px;}"
            << "img{max-width:100%;border:1px solid #444;}pre{background:#1d1d1d;padding:12px;overflow:auto;}"
-           << ".row{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start;}</style></head><body>\n"
+           << "a{color:#9cf}.row{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start;}"
+           << ".results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px;}</style></head><body>\n"
            << "<h1>Module12 Realtime Live Harness</h1>\n"
-           << "<p>Preview endpoint: <a href=\"/live.mjpeg\" style=\"color:#9cf\">/live.mjpeg</a></p>\n"
+           << "<p>Preview endpoint: <a href=\"/live.mjpeg\">/live.mjpeg</a> | "
+           << "<a href=\"/status.json\">/status.json</a> | "
+           << "<a href=\"/latest_event.json\">/latest_event.json</a> | "
+           << "<a href=\"/latest_stage2.json\">/latest_stage2.json</a> | "
+           << "<a href=\"/latest_final_event.json\">/latest_final_event.json</a></p>\n"
            << "<div class=\"row\"><div><img src=\"/live.mjpeg\" alt=\"live preview\"></div>"
            << "<div><h2>Status</h2><pre id=\"status\">loading...</pre>"
            << "<h2>Latest Event</h2><pre id=\"event\">waiting...</pre></div></div>\n"
+           << "<div class=\"results\">"
+           << "<div><h2>Latest Stage2</h2><pre id=\"stage2\">waiting...</pre></div>"
+           << "<div><h2>Latest Final Event</h2><pre id=\"final\">waiting...</pre></div>"
+           << "<div><h2>Quick Checks</h2><pre id=\"quick\">waiting...</pre></div>"
+           << "</div>\n"
            << "<script>\n"
            << "async function refresh(){\n"
            << "  const status = await fetch('/status.json').then(r=>r.text()).catch(()=>'{\"status\":\"unavailable\"}');\n"
            << "  const event = await fetch('/latest_event.json').then(r=>r.text()).catch(()=>'{\"status\":\"unavailable\"}');\n"
+           << "  const stage2 = await fetch('/latest_stage2.json').then(r=>r.text()).catch(()=>'{\"status\":\"unavailable\"}');\n"
+           << "  const finalEvent = await fetch('/latest_final_event.json').then(r=>r.text()).catch(()=>'{\"status\":\"unavailable\"}');\n"
            << "  document.getElementById('status').textContent = status;\n"
            << "  document.getElementById('event').textContent = event;\n"
+           << "  document.getElementById('stage2').textContent = stage2;\n"
+           << "  document.getElementById('final').textContent = finalEvent;\n"
+           << "  let quick = 'waiting...';\n"
+           << "  try {\n"
+           << "    const parsed = JSON.parse(event);\n"
+           << "    quick = JSON.stringify({event_type: parsed.event_type, actual_stage2_event_type: parsed.actual_stage2_event_type, stage2_success: parsed.stage2_success, crop_artifact_count: parsed.crop_artifact_count, stage2_result_path: parsed.stage2_result_path, final_event_path: parsed.final_event_path}, null, 2);\n"
+           << "  } catch (_) {}\n"
+           << "  document.getElementById('quick').textContent = quick;\n"
            << "}\n"
            << "refresh(); setInterval(refresh, 1000);\n"
            << "</script></body></html>\n";
@@ -1805,12 +1902,16 @@ bool Module12RealtimeHarness::Impl::run(std::string& error_message) {
         [this]() { return frame_buffer_.latest_snapshot(); },
         [this]() { return build_status_json(); },
         [this]() { return build_latest_event_json(); },
+        [this]() { return build_latest_stage2_json(); },
+        [this]() { return build_latest_final_event_json(); },
         [this]() { return build_index_html(); }
     );
 
     latest_event_state_.module2_mode = to_string(options_.module2_mode);
     latest_event_state_.pipeline_mode = pipeline_mode_string(options_);
     latest_event_json_ = build_placeholder_latest_event_json();
+    latest_stage2_json_ = build_placeholder_latest_stage2_json();
+    latest_final_event_json_ = build_placeholder_latest_final_event_json();
     run_started_utc_ = now_as_utc_string();
     run_started_steady_ = std::chrono::steady_clock::now();
 
@@ -1913,20 +2014,57 @@ Module2Execution Module12RealtimeHarness::Impl::run_module2(
     const std::string& session_id,
     const EventResult& stage1_event,
     const GrayFrame& before_frame,
-    const GrayFrame& after_frame
+    const GrayFrame& after_frame,
+    const std::filesystem::path& before_frame_path,
+    const std::filesystem::path& after_frame_path
 ) const {
     Module2Execution execution;
+    const YoloModule2Pipeline pipeline(yolo_runtime_config_, yolo_analysis_config_);
 
     if (options_.module2_mode == Module2Mode::RealOnnxRuntime) {
         const YoloRuntime runtime(yolo_runtime_config_);
-        const auto info = runtime.inspect(repo_root_);
-        execution.failure_reason = info.message;
+        const YoloOnnxOutput before_output = runtime.run(before_frame, repo_root_, execution.failure_reason);
+        if (!execution.failure_reason.empty()) {
+            return execution;
+        }
+        const YoloOnnxOutput after_output = runtime.run(after_frame, repo_root_, execution.failure_reason);
+        if (!execution.failure_reason.empty()) {
+            return execution;
+        }
+
+        std::string runtime_error;
+        execution.before_detections = pipeline.decode_output(before_output, before_frame, runtime_error);
+        if (!runtime_error.empty()) {
+            execution.failure_reason = runtime_error;
+            return execution;
+        }
+        execution.after_detections = pipeline.decode_output(after_output, after_frame, runtime_error);
+        if (!runtime_error.empty()) {
+            execution.failure_reason = runtime_error;
+            return execution;
+        }
+
+        execution.result = pipeline.analyze_outputs(
+            before_frame,
+            after_frame,
+            before_output,
+            after_output,
+            session_id,
+            path_to_utf8_string(before_frame_path),
+            path_to_utf8_string(after_frame_path),
+            runtime_error
+        );
+        if (!runtime_error.empty()) {
+            execution.failure_reason = runtime_error;
+            return execution;
+        }
+
+        execution.success = true;
         return execution;
     }
 
     // Test-only mock mode: generate ONNX-like outputs so the existing C++ module 2
     // decode and diff-analysis path can be exercised without a real runtime backend.
-    const YoloModule2Pipeline pipeline(yolo_runtime_config_, yolo_analysis_config_);
     const BoundingBox primary_box = choose_primary_box(
         stage1_event,
         before_frame,
@@ -2004,8 +2142,8 @@ Module2Execution Module12RealtimeHarness::Impl::run_module2(
         before_output,
         after_output,
         session_id,
-        "",
-        "",
+        path_to_utf8_string(before_frame_path),
+        path_to_utf8_string(after_frame_path),
         runtime_error
     );
     if (!runtime_error.empty()) {
@@ -2019,11 +2157,31 @@ Module2Execution Module12RealtimeHarness::Impl::run_module2(
 
 bool Module12RealtimeHarness::Impl::write_crop_artifacts(
     const SessionPaths& paths,
-    const Module2Execution& execution,
+    Module2Execution& execution,
     const GrayFrame& before_frame,
     const GrayFrame& after_frame,
     std::string& error_message
 ) const {
+    execution.crop_artifacts.clear();
+
+    std::error_code filesystem_error;
+    std::filesystem::remove_all(paths.stage2_crops_dir, filesystem_error);
+    if (filesystem_error) {
+        error_message = "Failed to reset crops directory: " + path_to_utf8_string(paths.stage2_crops_dir) +
+                        " (" + filesystem_error.message() + ")";
+        return false;
+    }
+    std::filesystem::create_directories(paths.stage2_crops_dir, filesystem_error);
+    if (filesystem_error) {
+        error_message = "Failed to create crops directory: " + path_to_utf8_string(paths.stage2_crops_dir) +
+                        " (" + filesystem_error.message() + ")";
+        return false;
+    }
+
+    if (!execution.success) {
+        return true;
+    }
+
     for (std::size_t index = 0; index < execution.result.crop_requests.size(); ++index) {
         const auto& request = execution.result.crop_requests[index];
         const GrayFrame& source_frame = request.source_frame == "before" ? before_frame : after_frame;
@@ -2036,6 +2194,7 @@ bool Module12RealtimeHarness::Impl::write_crop_artifacts(
         if (!write_debug_image(cropped, output_path, error_message)) {
             return false;
         }
+        execution.crop_artifacts.push_back(CropArtifactRecord{request, path_to_utf8_string(output_path)});
     }
     return true;
 }
@@ -2123,7 +2282,9 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
             session_id,
             stage1_event,
             selected.before_frame,
-            selected.after_frame
+            selected.after_frame,
+            paths.stage1_before_path,
+            paths.stage1_after_path
         );
     }
 
@@ -2141,23 +2302,25 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
         stage2_execution.after_detections,
         stage2_execution.failure_reason
     );
+    if (!artifact_writer_.write_text(paths.stage2_detections_before_path, before_detection_json, error_message) ||
+        !artifact_writer_.write_text(paths.stage2_detections_after_path, after_detection_json, error_message)) {
+        std::cerr << error_message << "\n";
+        return;
+    }
+
+    if (!options_.capture_only &&
+        !write_crop_artifacts(paths, stage2_execution, selected.before_frame, selected.after_frame, error_message)) {
+        std::cerr << error_message << "\n";
+        return;
+    }
+
     const std::string stage2_result_json = build_module2_result_json(
         session_id,
         options_.module2_mode,
         stage2_execution,
         stage1_event.event_type
     );
-
-    if (!artifact_writer_.write_text(paths.stage2_detections_before_path, before_detection_json, error_message) ||
-        !artifact_writer_.write_text(paths.stage2_detections_after_path, after_detection_json, error_message) ||
-        !artifact_writer_.write_text(paths.stage2_result_path, stage2_result_json, error_message)) {
-        std::cerr << error_message << "\n";
-        return;
-    }
-
-    if (!options_.capture_only &&
-        stage2_execution.success &&
-        !write_crop_artifacts(paths, stage2_execution, selected.before_frame, selected.after_frame, error_message)) {
+    if (!artifact_writer_.write_text(paths.stage2_result_path, stage2_result_json, error_message)) {
         std::cerr << error_message << "\n";
         return;
     }
@@ -2247,6 +2410,7 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
         latest_event_state_.has_event = true;
         latest_event_state_.capture_valid = true;
         latest_event_state_.stage2_skipped = options_.capture_only;
+        latest_event_state_.stage2_success = stage2_execution.success;
         latest_event_state_.fallback_used = fallback_used;
         latest_event_state_.fallback_reason = fallback_reason;
         latest_event_state_.session_id = session_id;
@@ -2261,7 +2425,11 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
         latest_event_state_.pipeline_mode = pipeline_mode_string(options_);
         latest_event_state_.session_dir = path_to_utf8_string(paths.session_dir);
         latest_event_state_.report_path = path_to_utf8_string(paths.final_report_path);
+        latest_event_state_.stage2_result_path = path_to_utf8_string(paths.stage2_result_path);
+        latest_event_state_.final_event_path = path_to_utf8_string(paths.final_event_path);
+        latest_event_state_.crops_dir = path_to_utf8_string(paths.stage2_crops_dir);
         latest_event_state_.timestamp = final_event.timestamp;
+        latest_event_state_.crop_artifact_count = stage2_execution.crop_artifacts.size();
 
         std::ostringstream latest_json;
         latest_json << "{\n"
@@ -2275,13 +2443,20 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
                     << "  \"module2_mode\": \"" << to_string(options_.module2_mode) << "\",\n"
                     << "  \"capture_valid\": " << bool_to_json(latest_event_state_.capture_valid) << ",\n"
                     << "  \"stage2_skipped\": " << bool_to_json(latest_event_state_.stage2_skipped) << ",\n"
+                    << "  \"stage2_success\": " << bool_to_json(latest_event_state_.stage2_success) << ",\n"
                     << "  \"fallback_used\": " << bool_to_json(latest_event_state_.fallback_used) << ",\n"
                     << "  \"fallback_reason\": \"" << escape_json(latest_event_state_.fallback_reason) << "\",\n"
                     << "  \"session_dir\": \"" << escape_json(latest_event_state_.session_dir) << "\",\n"
                     << "  \"report_path\": \"" << escape_json(latest_event_state_.report_path) << "\",\n"
+                    << "  \"stage2_result_path\": \"" << escape_json(latest_event_state_.stage2_result_path) << "\",\n"
+                    << "  \"final_event_path\": \"" << escape_json(latest_event_state_.final_event_path) << "\",\n"
+                    << "  \"crops_dir\": \"" << escape_json(latest_event_state_.crops_dir) << "\",\n"
+                    << "  \"crop_artifact_count\": " << latest_event_state_.crop_artifact_count << ",\n"
                     << "  \"timestamp\": \"" << escape_json(latest_event_state_.timestamp) << "\"\n"
                     << "}\n";
         latest_event_json_ = latest_json.str();
+        latest_stage2_json_ = stage2_result_json;
+        latest_final_event_json_ = event_result_to_json(final_event);
     }
 
     ++processed_event_count_;

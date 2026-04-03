@@ -1,12 +1,16 @@
 #include "video_io.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 
 #ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #endif
 
@@ -145,6 +149,30 @@ bool load_pgm_file(const fs::path& path, int frame_index, GrayFrame& frame, std:
     frame.index = frame_index;
     frame.pixels = std::move(buffer);
     return true;
+}
+
+bool load_encoded_image_file(const fs::path& path, int frame_index, GrayFrame& frame, std::string& error_message) {
+#ifdef FRIDGE_USE_OPENCV
+    const cv::Mat image = cv::imread(path_to_display_string(path), cv::IMREAD_GRAYSCALE);
+    if (image.empty()) {
+        error_message = "Failed to load encoded image: " + path_to_display_string(path);
+        return false;
+    }
+
+    frame.width = image.cols;
+    frame.height = image.rows;
+    frame.index = frame_index;
+    frame.pixels.assign(image.datastart, image.dataend);
+    return true;
+#else
+    (void)path;
+    (void)frame_index;
+    (void)frame;
+    error_message =
+        "Reading JPG/PNG debug images requires an OpenCV-enabled build. "
+        "Without OpenCV, use .pgm debug images instead.";
+    return false;
+#endif
 }
 
 bool write_pgm_file(const GrayFrame& frame, const fs::path& path, std::string& error_message) {
@@ -311,6 +339,31 @@ bool load_frames(const fs::path& source, std::vector<GrayFrame>& frames, std::st
         "Without OpenCV, pass a directory of .pgm frames for debug runs.";
     return false;
 #endif
+}
+
+bool load_debug_image(const fs::path& input_path, GrayFrame& frame, std::string& error_message) {
+    if (!fs::exists(input_path)) {
+        error_message = "Debug image path does not exist: " + path_to_display_string(input_path);
+        return false;
+    }
+    if (!fs::is_regular_file(input_path)) {
+        error_message = "Debug image path is not a file: " + path_to_display_string(input_path);
+        return false;
+    }
+
+    std::string extension = input_path.extension().string();
+    std::transform(
+        extension.begin(),
+        extension.end(),
+        extension.begin(),
+        [](unsigned char character) { return static_cast<char>(std::tolower(character)); }
+    );
+
+    if (extension == ".pgm") {
+        return load_pgm_file(input_path, 0, frame, error_message);
+    }
+
+    return load_encoded_image_file(input_path, 0, frame, error_message);
 }
 
 bool write_debug_image(const GrayFrame& frame, const fs::path& path, std::string& error_message) {

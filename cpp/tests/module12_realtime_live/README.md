@@ -238,4 +238,5 @@ Acceptance criteria for each emitted session:
 - Shared capture thread for preview and module 1: implemented
 - Session-based artifacts and JSON: implemented
 - Module 2 mock linkage: implemented
-- Real ONNX Runtime inference backend: not completed in the current repository, fallback is used instead of pretending it works
+- Real ONNX Runtime inference backend: implemented when the build is configured with ONNX Runtime
+- Live page now exposes `/latest_stage2.json` and `/latest_final_event.json` alongside the MJPEG preview
