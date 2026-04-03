@@ -116,9 +116,17 @@ std::string escape_json(const std::string& value) {
 DetectedObject placeholder_object(EventType event_type) {
     DetectedObject object;
     switch (event_type) {
+    case EventType::CaptureRecorded:
+    case EventType::NotEvaluated:
+    case EventType::Reorganize:
     case EventType::PutIn:
-        object.count_delta = 1;
-        object.remain_level = 1.0;
+        if (event_type == EventType::PutIn) {
+            object.count_delta = 1;
+            object.remain_level = 1.0;
+        } else {
+            object.count_delta = 0;
+            object.remain_level = 0.0;
+        }
         break;
     case EventType::TakeOut:
         object.count_delta = -1;

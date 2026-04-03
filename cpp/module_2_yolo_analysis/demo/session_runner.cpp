@@ -233,6 +233,10 @@ bool parse_event_type(const std::string& text, EventType& event_type) {
         event_type = EventType::NoChange;
         return true;
     }
+    if (normalized == "reorganize") {
+        event_type = EventType::Reorganize;
+        return true;
+    }
     if (normalized == "put_in") {
         event_type = EventType::PutIn;
         return true;
@@ -447,6 +451,9 @@ EventType mock_event_type_for_session(const std::string& session_token) {
     }
     if (normalized.find("tc04") != std::string::npos || normalized.find("partial") != std::string::npos) {
         return EventType::PartialTakeOutCandidate;
+    }
+    if (normalized.find("reorganize") != std::string::npos || normalized.find("reorg") != std::string::npos) {
+        return EventType::Reorganize;
     }
     if (normalized.find("tc01") != std::string::npos || normalized.find("no_change") != std::string::npos) {
         return EventType::NoChange;
@@ -724,10 +731,35 @@ std::string match_to_json(const DetectionMatch& match) {
     output << "    {\n"
            << "      \"before_index\": " << match.before_index << ",\n"
            << "      \"after_index\": " << match.after_index << ",\n"
-           << "      \"iou\": " << std::fixed << std::setprecision(4) << match.iou << ",\n"
-           << "      \"normalized_center_distance\": " << std::fixed << std::setprecision(4)
-           << match.normalized_center_distance << "\n"
+           << "      \"coarse_class\": \"" << escape_json(match.coarse_class) << "\",\n"
+            << "      \"iou\": " << std::fixed << std::setprecision(4) << match.iou << ",\n"
+            << "      \"normalized_center_distance\": " << std::fixed << std::setprecision(4)
+           << match.normalized_center_distance << ",\n"
+           << "      \"area_change_ratio\": " << std::fixed << std::setprecision(4)
+           << match.area_change_ratio << ",\n"
+           << "      \"match_score\": " << std::fixed << std::setprecision(4)
+           << match.match_score << "\n"
            << "    }";
+    return output.str();
+}
+
+std::string count_map_to_json(const fridge::DetectionCountMap& counts) {
+    std::ostringstream output;
+    output << "{";
+    if (!counts.empty()) {
+        output << "\n";
+        std::size_t index = 0;
+        for (const auto& entry : counts) {
+            output << "    \"" << escape_json(entry.first) << "\": " << entry.second;
+            if (index + 1 < counts.size()) {
+                output << ",";
+            }
+            output << "\n";
+            ++index;
+        }
+        output << "  ";
+    }
+    output << "}";
     return output.str();
 }
 
@@ -765,6 +797,9 @@ std::string build_module2_result_json(
            << "  \"success\": " << bool_to_json(execution.success) << ",\n"
            << "  \"stage2_skipped\": false,\n"
            << "  \"module2_mode\": \"" << to_string(mode) << "\",\n"
+           << "  \"before_counts\": " << count_map_to_json(execution.result.before_counts) << ",\n"
+           << "  \"after_counts\": " << count_map_to_json(execution.result.after_counts) << ",\n"
+           << "  \"count_decision\": \"" << escape_json(execution.result.count_decision) << "\",\n"
            << "  \"matched_pairs\": "
            << json_array_from_objects<DetectionMatch>(execution.result.matched_pairs, match_to_json) << ",\n"
            << "  \"new_boxes\": "
@@ -773,6 +808,8 @@ std::string build_module2_result_json(
            << json_array_from_objects<YoloDetection>(execution.result.disappeared_boxes, detection_to_json) << ",\n"
            << "  \"partial_candidates\": "
            << json_array_from_objects<DetectionMatch>(execution.result.partial_candidates, match_to_json) << ",\n"
+           << "  \"reorganize_candidates\": "
+           << json_array_from_objects<DetectionMatch>(execution.result.reorganize_candidates, match_to_json) << ",\n"
            << "  \"crop_requests\": "
            << json_array_from_objects<CropRequest>(execution.result.crop_requests, crop_request_to_json) << ",\n"
            << "  \"crop_artifacts\": "
@@ -931,6 +968,18 @@ Module2Execution run_module2(
     case EventType::PartialTakeOutCandidate: {
         const BoundingBox before_box = shrink_box(primary_box, 1.0);
         const BoundingBox after_box = shrink_box(primary_box, 0.65);
+        push_row(before_values, make_onnx_row(before_box, before_frame, runtime_config, 0.91F, class_index));
+        push_row(after_values, make_onnx_row(after_box, after_frame, runtime_config, 0.90F, class_index));
+        break;
+    }
+    case EventType::Reorganize: {
+        const BoundingBox before_box = shrink_box(primary_box, 0.90);
+        const BoundingBox after_box{
+            before_box.x + std::max(6, before_box.width / 4),
+            before_box.y,
+            before_box.width,
+            before_box.height
+        };
         push_row(before_values, make_onnx_row(before_box, before_frame, runtime_config, 0.91F, class_index));
         push_row(after_values, make_onnx_row(after_box, after_frame, runtime_config, 0.90F, class_index));
         break;

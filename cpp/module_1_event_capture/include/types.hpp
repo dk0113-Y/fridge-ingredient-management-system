@@ -30,6 +30,7 @@ enum class EventType {
     CaptureRecorded,
     NotEvaluated,
     NoChange,
+    Reorganize,
     PutIn,
     TakeOut,
     PartialTakeOutCandidate,
@@ -44,6 +45,8 @@ inline std::string to_string(EventType event_type) {
         return "not_evaluated";
     case EventType::NoChange:
         return "no_change";
+    case EventType::Reorganize:
+        return "reorganize";
     case EventType::PutIn:
         return "put_in";
     case EventType::TakeOut:

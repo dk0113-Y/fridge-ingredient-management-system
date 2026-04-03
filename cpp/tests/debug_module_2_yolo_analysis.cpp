@@ -146,7 +146,7 @@ bool debug_module2_pipeline_on_onnx_outputs() {
     const fridge::YoloOnnxOutput after_output{
         1,
         runtime_config.output_columns,
-        {160.0F, 160.0F, 360.0F, 360.0F, 0.91F, 3.0F}
+        {160.0F, 160.0F, 360.0F, 360.0F, 0.91F, 0.0F}
     };
 
     const auto put_in_result = pipeline.analyze_outputs(
@@ -167,17 +167,17 @@ bool debug_module2_pipeline_on_onnx_outputs() {
     auto fruit_before = make_frame(16, 16, 140, 0);
     auto fruit_after = make_frame(16, 16, 140, 1);
     paint_box(fruit_before, 4, 4, 6, 6, 50);
-    paint_box(fruit_after, 4, 4, 4, 4, 70);
+    paint_box(fruit_after, 5, 5, 4, 4, 70);
 
     const fridge::YoloOnnxOutput partial_before_output{
         1,
         runtime_config.output_columns,
-        {160.0F, 160.0F, 400.0F, 400.0F, 0.93F, 0.0F}
+        {160.0F, 160.0F, 400.0F, 400.0F, 0.93F, 1.0F}
     };
     const fridge::YoloOnnxOutput partial_after_output{
         1,
         runtime_config.output_columns,
-        {160.0F, 160.0F, 320.0F, 320.0F, 0.92F, 0.0F}
+        {200.0F, 200.0F, 360.0F, 360.0F, 0.92F, 1.0F}
     };
 
     const auto partial_result = pipeline.analyze_outputs(
@@ -195,13 +195,73 @@ bool debug_module2_pipeline_on_onnx_outputs() {
         return false;
     }
 
+    auto reorganize_before = make_frame(16, 16, 140, 0);
+    auto reorganize_after = make_frame(16, 16, 140, 1);
+    paint_box(reorganize_before, 3, 4, 5, 5, 30);
+    paint_box(reorganize_after, 7, 4, 5, 5, 30);
+    const fridge::YoloOnnxOutput reorganize_before_output{
+        1,
+        runtime_config.output_columns,
+        {120.0F, 160.0F, 320.0F, 360.0F, 0.93F, 0.0F}
+    };
+    const fridge::YoloOnnxOutput reorganize_after_output{
+        1,
+        runtime_config.output_columns,
+        {280.0F, 160.0F, 480.0F, 360.0F, 0.92F, 0.0F}
+    };
+    const auto reorganize_result = pipeline.analyze_outputs(
+        reorganize_before,
+        reorganize_after,
+        reorganize_before_output,
+        reorganize_after_output,
+        "module2_reorganize",
+        "before.jpg",
+        "after.jpg",
+        error_message
+    );
+    if (!error_message.empty()) {
+        std::cerr << error_message << "\n";
+        return false;
+    }
+
+    auto no_change_before = make_frame(16, 16, 140, 0);
+    auto no_change_after = make_frame(16, 16, 140, 1);
+    paint_box(no_change_before, 4, 4, 5, 5, 20);
+    paint_box(no_change_after, 4, 4, 5, 5, 220);
+    const fridge::YoloOnnxOutput no_change_before_output{
+        1,
+        runtime_config.output_columns,
+        {160.0F, 160.0F, 360.0F, 360.0F, 0.91F, 0.0F}
+    };
+    const fridge::YoloOnnxOutput no_change_after_output{
+        1,
+        runtime_config.output_columns,
+        {160.0F, 160.0F, 360.0F, 360.0F, 0.92F, 0.0F}
+    };
+    const auto no_change_result = pipeline.analyze_outputs(
+        no_change_before,
+        no_change_after,
+        no_change_before_output,
+        no_change_after_output,
+        "module2_no_change",
+        "before.jpg",
+        "after.jpg",
+        error_message
+    );
+    if (!error_message.empty()) {
+        std::cerr << error_message << "\n";
+        return false;
+    }
+
     std::cout
         << "module_2_input: values=" << prepared_input.values.size()
         << " channels=" << prepared_input.channels
         << " height=" << prepared_input.height
         << " width=" << prepared_input.width << "\n"
         << "module_2_debug: put_in=" << fridge::to_string(put_in_result.event.event_type)
+        << " reorganize=" << fridge::to_string(reorganize_result.event.event_type)
         << " partial=" << fridge::to_string(partial_result.event.event_type)
+        << " no_change=" << fridge::to_string(no_change_result.event.event_type)
         << " crop_requests=" << partial_result.crop_requests.size() << "\n";
 
     return expect(
@@ -211,14 +271,25 @@ bool debug_module2_pipeline_on_onnx_outputs() {
            ) &&
            expect(
                put_in_result.event.event_type == fridge::EventType::PutIn &&
-               put_in_result.new_boxes.size() == 1,
-               "module 2 should classify a single ONNX-decoded new detection as put_in"
+               put_in_result.event.objects.front().count_delta == 1,
+               "module 2 should classify a single count increase as put_in"
            ) &&
            expect(
                partial_result.event.event_type == fridge::EventType::PartialTakeOutCandidate &&
                partial_result.event.need_user_confirm &&
                !partial_result.partial_candidates.empty(),
-               "module 2 should classify matched ONNX-decoded fruit_vegetable changes as partial_take_out_candidate"
+               "module 2 should classify same-count fruit_vegetable area shrink as partial_take_out_candidate"
+           ) &&
+           expect(
+               reorganize_result.event.event_type == fridge::EventType::Reorganize &&
+               !reorganize_result.reorganize_candidates.empty() &&
+               reorganize_result.crop_requests.empty(),
+               "module 2 should classify same-count position-only movement as reorganize"
+           ) &&
+           expect(
+               no_change_result.event.event_type == fridge::EventType::NoChange &&
+               no_change_result.partial_candidates.empty(),
+               "module 2 should ignore crop visual delta when box position and size stay stable"
            );
 }
 

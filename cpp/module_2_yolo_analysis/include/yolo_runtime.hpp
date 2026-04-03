@@ -20,10 +20,10 @@ std::string to_string(YoloModelFormat format);
 struct YoloRuntimeConfig {
     std::filesystem::path model_path = "models/best.onnx";
     std::vector<std::string> class_names = {
+        "packaged_food",
         "fruit_vegetable",
         "meat_egg_fresh",
         "drink",
-        "packaged_food",
     };
     int input_width = 640;
     int input_height = 640;
