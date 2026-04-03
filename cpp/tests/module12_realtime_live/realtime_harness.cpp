@@ -92,6 +92,8 @@ struct SessionPaths {
     std::filesystem::path stage1_debug_path;
     std::filesystem::path stage2_detections_before_path;
     std::filesystem::path stage2_detections_after_path;
+    std::filesystem::path stage2_detections_before_image_path;
+    std::filesystem::path stage2_detections_after_image_path;
     std::filesystem::path stage2_result_path;
     std::filesystem::path stage2_crops_dir;
     std::filesystem::path final_event_path;
@@ -318,6 +320,87 @@ ColorFrame build_overlay_color_frame(
 #endif
 }
 
+BoundingBox clamp_box_to_color_frame(const BoundingBox& box, const ColorFrame& frame) {
+    if (frame.empty()) {
+        return {};
+    }
+
+    const int x0 = std::max(0, std::min(box.x, frame.width));
+    const int y0 = std::max(0, std::min(box.y, frame.height));
+    const int x1 = std::max(x0, std::min(box.x + box.width, frame.width));
+    const int y1 = std::max(y0, std::min(box.y + box.height, frame.height));
+    return BoundingBox{x0, y0, x1 - x0, y1 - y0};
+}
+
+ColorFrame crop_color_frame(const ColorFrame& source, const BoundingBox& requested_box) {
+    ColorFrame cropped;
+    const BoundingBox box = clamp_box_to_color_frame(requested_box, source);
+    if (source.empty() || box.width <= 0 || box.height <= 0) {
+        return cropped;
+    }
+
+    cropped.width = box.width;
+    cropped.height = box.height;
+    cropped.index = source.index;
+    cropped.pixels.resize(static_cast<std::size_t>(box.width * box.height * 3));
+    for (int y = 0; y < box.height; ++y) {
+        const int source_row = box.y + y;
+        const std::size_t source_offset = static_cast<std::size_t>((source_row * source.width + box.x) * 3);
+        const std::size_t target_offset = static_cast<std::size_t>(y * box.width * 3);
+        std::copy_n(source.pixels.begin() + static_cast<std::ptrdiff_t>(source_offset), static_cast<std::ptrdiff_t>(box.width * 3), cropped.pixels.begin() + static_cast<std::ptrdiff_t>(target_offset));
+    }
+    return cropped;
+}
+
+ColorFrame build_detection_overlay_frame(
+    const ColorFrame& source_frame,
+    const std::vector<YoloDetection>& detections
+) {
+    if (source_frame.empty()) {
+        return {};
+    }
+
+    ColorFrame overlay = source_frame;
+#ifdef FRIDGE_USE_OPENCV
+    cv::Mat image(overlay.height, overlay.width, CV_8UC3, overlay.pixels.data());
+    const cv::Scalar box_color(0, 255, 255);
+    const cv::Scalar text_bg(0, 0, 0);
+    const cv::Scalar text_fg(255, 255, 255);
+
+    for (const auto& detection : detections) {
+        const BoundingBox box = clamp_box_to_color_frame(detection.bbox, overlay);
+        if (box.width <= 0 || box.height <= 0) {
+            continue;
+        }
+
+        cv::rectangle(image, cv::Rect(box.x, box.y, box.width, box.height), box_color, 2);
+
+        std::ostringstream label;
+        label << detection.coarse_class << " " << std::fixed << std::setprecision(2) << detection.confidence;
+        const std::string label_text = label.str();
+        int baseline = 0;
+        const cv::Size text_size = cv::getTextSize(label_text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseline);
+        const int text_x = std::max(0, std::min(box.x, overlay.width - text_size.width - 2));
+        const int text_y = box.y > text_size.height + 4 ? box.y - 4 : std::min(overlay.height - 2, box.y + text_size.height + 4);
+        const int bg_top = std::max(0, text_y - text_size.height - baseline - 2);
+        const int bg_height = std::min(overlay.height - bg_top, text_size.height + baseline + 4);
+        const int bg_width = std::min(overlay.width - text_x, text_size.width + 4);
+        cv::rectangle(image, cv::Rect(text_x, bg_top, bg_width, bg_height), text_bg, cv::FILLED);
+        cv::putText(
+            image,
+            label_text,
+            cv::Point(text_x + 2, std::min(overlay.height - 2, text_y - 2)),
+            cv::FONT_HERSHEY_SIMPLEX,
+            0.5,
+            text_fg,
+            1,
+            cv::LINE_AA
+        );
+    }
+#endif
+    return overlay;
+}
+
 std::string escape_json(const std::string& value) {
     std::ostringstream escaped;
     for (const char character : value) {
@@ -415,6 +498,7 @@ std::string build_module2_result_json(
     const std::string& session_id,
     Module2Mode mode,
     const Module2Execution& execution,
+    const SessionPaths& paths,
     EventType fallback_event_type
 );
 std::string build_live_capture_meta_json(
@@ -1067,6 +1151,7 @@ std::string build_module2_result_json(
     const std::string& session_id,
     Module2Mode mode,
     const Module2Execution& execution,
+    const SessionPaths& paths,
     EventType fallback_event_type
 ) {
     const bool stage2_skipped = !execution.success && execution.failure_reason == "capture_only: module2 skipped";
@@ -1080,6 +1165,8 @@ std::string build_module2_result_json(
            << "  \"success\": " << bool_to_json(execution.success) << ",\n"
            << "  \"stage2_skipped\": " << bool_to_json(stage2_skipped) << ",\n"
            << "  \"module2_mode\": \"" << to_string(mode) << "\",\n"
+           << "  \"before_detection_overlay_path\": \"" << escape_json(path_to_utf8_string(paths.stage2_detections_before_image_path)) << "\",\n"
+           << "  \"after_detection_overlay_path\": \"" << escape_json(path_to_utf8_string(paths.stage2_detections_after_image_path)) << "\",\n"
            << "  \"before_counts\": " << count_map_to_json(execution.result.before_counts) << ",\n"
            << "  \"after_counts\": " << count_map_to_json(execution.result.after_counts) << ",\n"
            << "  \"count_decision\": \"" << escape_json(execution.result.count_decision) << "\",\n"
@@ -1276,6 +1363,8 @@ public:
         layout.stage1_debug_path = layout.stage1_dir / "stage1_debug.json";
         layout.stage2_detections_before_path = layout.stage2_dir / "detections_before.json";
         layout.stage2_detections_after_path = layout.stage2_dir / "detections_after.json";
+        layout.stage2_detections_before_image_path = layout.stage2_dir / "before_detections.jpg";
+        layout.stage2_detections_after_image_path = layout.stage2_dir / "after_detections.jpg";
         layout.stage2_result_path = layout.stage2_dir / "module2_result.json";
         layout.stage2_crops_dir = layout.stage2_dir / "crops";
         layout.final_event_path = layout.final_dir / "event.json";
@@ -1789,8 +1878,15 @@ private:
     bool write_crop_artifacts(
         const SessionPaths& paths,
         Module2Execution& execution,
-        const GrayFrame& before_frame,
-        const GrayFrame& after_frame,
+        const ColorFrame& before_color,
+        const ColorFrame& after_color,
+        std::string& error_message
+    ) const;
+    bool write_detection_overlays(
+        const SessionPaths& paths,
+        const Module2Execution& execution,
+        const ColorFrame& before_color,
+        const ColorFrame& after_color,
         std::string& error_message
     ) const;
     void process_event_window(const StableCaptureEvent& capture_event);
@@ -2257,8 +2353,8 @@ Module2Execution Module12RealtimeHarness::Impl::run_module2(
 bool Module12RealtimeHarness::Impl::write_crop_artifacts(
     const SessionPaths& paths,
     Module2Execution& execution,
-    const GrayFrame& before_frame,
-    const GrayFrame& after_frame,
+    const ColorFrame& before_color,
+    const ColorFrame& after_color,
     std::string& error_message
 ) const {
     execution.crop_artifacts.clear();
@@ -2283,18 +2379,38 @@ bool Module12RealtimeHarness::Impl::write_crop_artifacts(
 
     for (std::size_t index = 0; index < execution.result.crop_requests.size(); ++index) {
         const auto& request = execution.result.crop_requests[index];
-        const GrayFrame& source_frame = request.source_frame == "before" ? before_frame : after_frame;
-        const GrayFrame cropped = crop_frame(source_frame, request.bbox);
+        const ColorFrame& source_frame = request.source_frame == "before" ? before_color : after_color;
+        const ColorFrame cropped = crop_color_frame(source_frame, request.bbox);
         std::ostringstream name;
         name << std::setw(2) << std::setfill('0') << index;
         const std::filesystem::path output_path =
             paths.stage2_crops_dir /
             (request.source_frame + "_" + name.str() + "_" + sanitize_token(request.coarse_class) + ".jpg");
-        if (!write_debug_image(cropped, output_path, error_message)) {
+        if (!write_color_debug_image(cropped, output_path, error_message)) {
             return false;
         }
         execution.crop_artifacts.push_back(CropArtifactRecord{request, path_to_utf8_string(output_path)});
     }
+    return true;
+}
+
+bool Module12RealtimeHarness::Impl::write_detection_overlays(
+    const SessionPaths& paths,
+    const Module2Execution& execution,
+    const ColorFrame& before_color,
+    const ColorFrame& after_color,
+    std::string& error_message
+) const {
+    const ColorFrame before_overlay = build_detection_overlay_frame(before_color, execution.before_detections);
+    if (!write_color_debug_image(before_overlay, paths.stage2_detections_before_image_path, error_message)) {
+        return false;
+    }
+
+    const ColorFrame after_overlay = build_detection_overlay_frame(after_color, execution.after_detections);
+    if (!write_color_debug_image(after_overlay, paths.stage2_detections_after_image_path, error_message)) {
+        return false;
+    }
+
     return true;
 }
 
@@ -2410,7 +2526,13 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
     }
 
     if (!options_.capture_only &&
-        !write_crop_artifacts(paths, stage2_execution, selected.before_frame, selected.after_frame, error_message)) {
+        !write_detection_overlays(paths, stage2_execution, before_color, after_color, error_message)) {
+        std::cerr << error_message << "\n";
+        return;
+    }
+
+    if (!options_.capture_only &&
+        !write_crop_artifacts(paths, stage2_execution, before_color, after_color, error_message)) {
         std::cerr << error_message << "\n";
         return;
     }
@@ -2419,6 +2541,7 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
         session_id,
         options_.module2_mode,
         stage2_execution,
+        paths,
         EventType::NotEvaluated
     );
     if (!artifact_writer_.write_text(paths.stage2_result_path, stage2_result_json, error_message)) {
