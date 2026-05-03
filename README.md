@@ -1,7 +1,9 @@
 # Smart Fridge Ingredient Recognition and Inventory Management
 
-This repository follows the all-C/C++ baseline defined in
+This repository is moving toward the all-C/C++ target baseline defined in
 [`docs/system_final_design_cpp_only.md`](docs/system_final_design_cpp_only.md).
+That document is a final architecture baseline, not a complete list of what is
+already implemented.
 
 ## Active Directories
 
@@ -25,7 +27,7 @@ This repository follows the all-C/C++ baseline defined in
 ## What Is Implemented
 
 - `cpp/`: stage-1 keyframe extraction, ROI motion analysis, event classification, and debug artifact output
-- `cpp/module_2_yolo_analysis/`: ONNX model execution via OpenCV DNN, preprocessing, ONNX output decoding, box matching, and YOLO diff-analysis baseline
+- `cpp/module_2_yolo_analysis/`: YOLO runtime using ONNX Runtime first and OpenCV DNN as fallback, preprocessing, ONNX output decoding, box matching, and YOLO diff-analysis baseline
 - `cpp/module_3_fine_grained/`: C++ fine-grained recognition client skeleton with mock mode and provider-neutral config
 - `cpp/module_4_inventory/`: inventory rule engine, pending review flow, and manual update baseline
 - `cpp/module_5_local_service/`: local service facade for health, inventory, events, pending review, confirm, and manual update
@@ -34,9 +36,9 @@ This repository follows the all-C/C++ baseline defined in
 
 ## Key Documents
 
-- [`docs/system_final_design_cpp_only.md`](docs/system_final_design_cpp_only.md): final architecture baseline
-- [`docs/backend_api_cpp_only.md`](docs/backend_api_cpp_only.md): C++ local HTTP API baseline
-- [`docs/vision_pipeline.md`](docs/vision_pipeline.md): current C++ vision pipeline notes
+- [`docs/system_final_design_cpp_only.md`](docs/system_final_design_cpp_only.md): final target architecture baseline
+- [`docs/backend_api_cpp_only.md`](docs/backend_api_cpp_only.md): target C++ local service/API baseline
+- [`docs/vision_pipeline.md`](docs/vision_pipeline.md): module-1 vision front-end notes; module-2 status lives under `cpp/module_2_yolo_analysis/`
 
 ## Current Limits
 

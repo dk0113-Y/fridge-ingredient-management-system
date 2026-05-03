@@ -2,9 +2,17 @@
 
 ## 1. 文档定位
 
-本文档用于覆盖旧的“C++ 视觉 + Python 后端”过渡方案，作为当前项目后续开发的统一基线。
+本文档用于覆盖旧的“C++ 视觉 + Python 后端”过渡方案，作为当前项目后续开发的最终方案 / 目标架构基线。
 
-当前正式约束如下：
+注意：本文档不是当前仓库完整实现清单。当前仓库已经转向全 C/C++ 架构，但 5 个模块的实现成熟度不同：
+
+- 模块 1 已有事件检测、关键帧提取、ROI 运动分析和调试输出。
+- 模块 2 已有独立 YOLO 分析链路，优先使用 ONNX Runtime 执行 `models/best.onnx`，OpenCV DNN 作为 fallback；没有这两个后端时仍可走 mock/debug/`.pgm` 路径，但不等价于真实 ONNX 推理。
+- 模块 3 当前是独立 fine-grained recognizer client skeleton，支持 mock mode 和 provider config，尚未完整接入主事件 / 库存链路。
+- 模块 4 当前以 in-memory `InventoryEngine` / rule engine baseline 为主，覆盖库存 mutation、pending review 和 manual correction；SQLite 是后续 adapter / persistence 目标，尚未完全落地。
+- 模块 5 当前是 local service facade / JSON response baseline，覆盖 health、inventory、events、pending、confirm、manual-update 等响应；真实 embedded/local HTTP server 尚未完成。
+
+最终方案约束如下：
 
 - 除小程序外，系统端所有代码统一使用 C/C++ 实现。
 - 小程序部分当前不做结构调整，保持既有功能边界不变。
@@ -34,15 +42,17 @@
 
 ## 3. 总体流程
 
+以下为目标流程，不代表当前每一步都已经完整接入主链路：
+
 1. 主程序低成本监测冰箱门状态、亮度变化和 ROI 帧差。
 2. 检测到有效开门交互后，提取 `before` 和 `after` 关键帧。
 3. 对前后关键帧分别运行 YOLO，得到粗分类、目标框、数量和置信度。
 4. 通过数量差分与同类框匹配，输出 `put_in`、`take_out`、`partial_take_out_candidate`、`no_change`、`uncertain`。
 5. 对发生变化的目标区域进行裁剪。
-6. 若需要细分类，则调用外部大模型接口，获取细粒度名称和相关补充信息。
-7. 主程序内部直接生成事件对象并更新 SQLite 数据库。
+6. 若需要细分类，则调用外部大模型接口，获取细粒度名称和相关补充信息；当前模块 3 仍是独立 client skeleton / mock + provider config。
+7. 主程序内部直接生成事件对象并更新库存状态；SQLite 是目标数据库方案，当前模块 4 仍以 in-memory 规则引擎为主。
 8. 同时输出 `event.json` 作为调试日志与可追溯记录。
-9. 本地 HTTP 服务向小程序或本地页面提供库存、事件、确认和修正接口。
+9. 本地 HTTP 服务向小程序或本地页面提供库存、事件、确认和修正接口；当前模块 5 尚未接入真实 HTTP server，已有的是 local service facade / JSON response baseline。
 
 ---
 
@@ -176,7 +186,7 @@
 
 增强识别层，不承担主链路第一道硬判定。
 
-### 实现方式
+### 目标实现方式
 
 主程序使用 C/C++ 调用外部大模型接口，不使用 Python。
 
@@ -190,6 +200,10 @@
 - `fine_name`
 - `llm_confidence`
 - `expiry_info`
+
+### 当前实现边界
+
+当前仓库中的模块 3 是独立 fine-grained recognizer client skeleton，支持 mock mode、provider-neutral config 和未来 HTTPS JSON request path。它尚未完整接入模块 1/2/4 的主事件 / 库存链路。
 
 ### 粗分类对应策略
 
@@ -219,9 +233,9 @@
 
 完成库存更新、事件记录、待确认管理、保质期管理和人工修正。
 
-### 数据库方案
+### 目标数据库方案
 
-统一使用 SQLite，由 C/C++ 直接调用 `sqlite3` C API 管理。
+最终方案统一使用 SQLite，由 C/C++ 直接调用 `sqlite3` C API 管理。当前仓库尚未完成 SQLite adapter / persistence 接入，模块 4 仍以 in-memory `InventoryEngine` 和规则引擎 baseline 为主；未来 adapter 应替换或扩展存储层，并尽量保持 public rule-engine API 稳定。
 
 ### 建议数据表
 
@@ -260,7 +274,7 @@
 
 统一调度各模块，负责系统对外服务与联调。
 
-### 主要职责
+### 目标主要职责
 
 - 摄像头/视频流接入
 - 事件状态机控制
@@ -271,6 +285,10 @@
 - 输出 `event.json` 调试日志
 - 提供本地 HTTP API
 - 记录日志与异常
+
+### 当前实现边界
+
+当前模块 5 是 local service facade / JSON response baseline，已能生成 health、inventory、events、pending、confirm、manual-update 等 JSON 响应；真实 embedded/local HTTP server、端口监听、路由绑定和小程序联调仍是后续任务。
 
 ### 小程序边界
 
@@ -342,21 +360,23 @@
 - Flask 提供本地接口
 - Python 扫描 `event.json` 再导入 SQLite
 
-当前统一改为：
+最终方案统一改为：
 
 - C/C++ 主程序内部完成事件处理、库存更新与 HTTP 服务
 - `event.json` 仅作为调试日志和可追溯记录
 - 小程序继续通过稳定接口访问本地服务
 
+当前实现中，库存持久化仍以 in-memory rule engine baseline 为主，HTTP 层仍是 local service facade，尚未等同于完整上线的本地 HTTP 服务。
+
 ---
 
 ## 7. 当前正式结论
 
-1. 最终系统采用全 C/C++ 一体化架构。
-2. 当前版本仅使用 YOLO 作为目标识别模型。
+1. 最终系统采用全 C/C++ 一体化架构；当前仓库已经按该方向组织，但不是所有目标能力都已完成。
+2. 当前目标识别链路以 YOLO 为核心，模块 2 已有 ONNX Runtime / OpenCV DNN fallback 和 mock/debug 路径。
 3. 部分取出仅对果蔬类启用，饮料类不做部分取出判断。
 4. 小程序部分当前不做调整。
-5. 先完成基础闭环，再补大模型细分类与包装信息推断。
+5. 先完成基础闭环，再补大模型细分类、SQLite persistence、真实 HTTP server 与包装信息推断。
 
 ---
 
@@ -367,8 +387,8 @@
 - 关键帧提取
 - YOLO 粗分类
 - 事件判定
-- SQLite 库存更新
-- C++ 本地 HTTP 接口
+- SQLite 库存更新 adapter / persistence
+- C++ 本地 HTTP server 接入
 
 ### 第二优先级
 
@@ -386,4 +406,4 @@
 
 ## 9. 答辩统一表述
 
-“本系统采用全 C/C++ 一体化架构，在端侧完成真实事件检测、关键帧提取、YOLO 粗分类、库存更新和本地通信服务；对于需要进一步确认的目标，再调用大模型完成细粒度识别与包装食品保质期推断。为保证工程可落地性，当前版本将部分取出功能限定在果蔬类场景，饮料类暂不进行部分取出自动识别；小程序前端维持不变，仅通过稳定接口与本地服务交互。”
+“本系统目标方案采用全 C/C++ 一体化架构，在端侧完成真实事件检测、关键帧提取、YOLO 粗分类、库存更新和本地通信服务；对于需要进一步确认的目标，再调用大模型完成细粒度识别与包装食品保质期推断。当前仓库已完成部分模块 baseline：模块 1/2/4/5 已具备可调试链路，模块 3 仍是独立 client skeleton；SQLite persistence、真实 HTTP server 和模块 3 主链路集成仍需后续完成。为保证工程可落地性，部分取出功能限定在果蔬类场景，饮料类暂不进行部分取出自动识别；小程序前端维持不变，仅通过稳定接口与本地服务交互。”

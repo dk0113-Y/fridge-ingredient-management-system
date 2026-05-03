@@ -11,7 +11,7 @@ This module is intentionally independent from the stage-1 inventory and event ch
 - supports a deterministic mock mode for local integration
 - reserves an HTTPS JSON request path for future cloud providers
 
-It does not yet update inventory state or connect to the planned C++ inventory and HTTP modules.
+It does not yet update inventory state, consume module-1/module-2 events, or connect to the planned C++ inventory and HTTP modules. Mock mode is suitable for local integration tests, while real provider integration and main-chain wiring remain future work.
 
 ## Config
 

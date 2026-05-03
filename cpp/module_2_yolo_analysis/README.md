@@ -70,6 +70,7 @@ Notes:
 
 - `mock` mode reuses the stage-1 event type and change box to synthesize ONNX-like rows, so the existing C++ decode and diff-analysis path can be exercised on captured sessions today
 - `real_onnx_runtime` mode runs the configured `best.onnx` model through ONNX Runtime when available; OpenCV DNN remains a fallback backend
+- builds without ONNX Runtime and without OpenCV DNN can still use mock/debug/`.pgm` paths, but those paths do not execute the real ONNX graph
 - the watcher only reprocesses sessions whose stage-1 inputs are newer than the existing stage-2/final JSON outputs
 - reading `.jpg/.png` stage1 artifacts still requires an OpenCV-enabled build; `.pgm` artifacts still work without OpenCV in `mock` mode
 - end-to-end YOLO models such as YOLO26 may expose separate box/score/class tensors, and the runtime now adapts to those layouts before diff analysis

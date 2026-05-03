@@ -2,11 +2,13 @@
 
 ## 1. 文档定位
 
-本文档用于覆盖旧的 Python/Flask 后端接口说明，作为当前项目本地服务层的统一接口基线。
+本文档用于覆盖旧的 Python/Flask 后端接口说明，作为当前项目本地服务层的目标接口基线。
+
+注意：本文档描述的是本地服务接口目标，不代表当前仓库已经接入完整 HTTP server。当前仓库中的模块 5 主要是 local service facade / JSON response baseline，已覆盖 health、inventory、events、pending、confirm、manual-update 等响应；真实 embedded/local HTTP server、端口监听和路由绑定尚未完成。
 
 当前版本约束：
 
-- 本地服务由 C/C++ 实现，不再使用 Python/Flask。
+- 最终本地服务由 C/C++ 实现，不再使用 Python/Flask。
 - 小程序部分暂不调整，因此接口字段应尽量稳定。
 - 服务端主要面向本地网页调试和小程序读取，不追求复杂云端能力。
 
@@ -14,7 +16,7 @@
 
 ## 2. 服务职责
 
-本地服务负责：
+目标本地服务负责：
 
 - 提供库存查询接口
 - 提供事件记录查询接口
@@ -24,17 +26,17 @@
 
 说明：
 
-事件检测、YOLO 推理、数据库更新都由 C/C++ 主程序内部完成；HTTP 服务只负责对外暴露状态与控制入口。
+目标架构中，事件检测、YOLO 推理、数据库更新都由 C/C++ 主程序内部完成；HTTP 服务只负责对外暴露状态与控制入口。当前实现中，模块 5 仍是 facade，直接返回 JSON 字符串，尚未提供真实 HTTP server。
 
 ---
 
 ## 3. 推荐实现
 
-建议在 C/C++ 中使用：
+后续接入真实 HTTP server 时，建议在 C/C++ 中使用：
 
 - HTTP 服务：`cpp-httplib` 或 `CivetWeb`
 - JSON：`nlohmann/json`
-- SQLite：`sqlite3`
+- SQLite：`sqlite3`。SQLite 是目标数据库方案；当前库存状态以模块 4 的 in-memory `InventoryEngine` / rule engine baseline 为准。
 
 ---
 
@@ -184,18 +186,20 @@
 
 HTTP 服务不再扫描 `event.json` 进行导入。
 
-当前版本改为：
+目标版本改为：
 
 - C/C++ 主程序内部直接生成事件对象
 - 直接写入 SQLite
 - HTTP 服务从 SQLite 读取库存、事件和待确认数据
 - `event.json` 仅作为调试日志和可追溯记录
 
+当前仓库尚未完成 SQLite adapter / persistence，模块 4 仍以内存库存 mutation、pending review、manual correction 和规则引擎 baseline 为主；模块 5 当前从该 facade/engine 状态生成 JSON 响应。
+
 ---
 
 ## 6. 当前正式结论
 
-1. 本地服务统一由 C/C++ 实现。
+1. 最终本地服务统一由 C/C++ 实现。
 2. 不再保留 Python/Flask 作为最终架构组成部分。
 3. 小程序当前不做调整，因此接口字段尽量保持稳定。
-4. 事件主链为“C/C++ 主程序内部处理并直接写库”，而非“扫描 JSON 再导入数据库”。
+4. 目标事件主链为“C/C++ 主程序内部处理并直接写库”，而非“扫描 JSON 再导入数据库”；当前仍需补齐 SQLite persistence 和真实 HTTP server。

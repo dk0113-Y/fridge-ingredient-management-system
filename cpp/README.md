@@ -1,6 +1,6 @@
 # C++ Module Layout
 
-`cpp/` is now organized directly around the 5-module structure defined in `docs/system_final_design_cpp_only.md`.
+`cpp/` is now organized directly around the 5-module target structure defined in `docs/system_final_design_cpp_only.md`.
 
 ## Directory Layout
 
@@ -14,7 +14,7 @@
   - local image and video input/output
 - `module_2_yolo_analysis/`
   - heuristic event classification logic
-  - YOLO model-asset inspection and ONNX execution
+  - YOLO model-asset inspection and ONNX execution through ONNX Runtime first, with OpenCV DNN as fallback
   - grayscale-to-model preprocessing and ONNX output decoding
   - YOLO box matching and diff analysis
   - debug report output
@@ -42,7 +42,7 @@
 The repository has only partially reached the final 5-module target:
 
 - module 1 is implemented
-- module 2 now contains the stage-1 heuristic detector, ONNX model-asset inspection/execution, grayscale preprocessing, ONNX output decoding, and a separate YOLO diff analyzer
+- module 2 now contains the stage-1 heuristic detector, ONNX model-asset inspection/execution through ONNX Runtime first and OpenCV DNN as fallback, grayscale preprocessing, ONNX output decoding, and a separate YOLO diff analyzer
 - module 3 has an independent cloud recognizer skeleton
 - module 4 now has an inventory rule engine with pending-review and manual-update flow
 - module 5 now has a dedicated module directory with a local service facade that exposes health, inventory, events, pending, confirm, and manual-update JSON responses
@@ -62,4 +62,4 @@ If you want the native ONNX Runtime backend for module 2, add:
 -D FRIDGE_USE_ONNXRUNTIME=ON -D FRIDGE_ONNXRUNTIME_ROOT=<onnxruntime-sdk-root>
 ```
 
-If OpenCV with `dnn` is unavailable, use `-D FRIDGE_USE_OPENCV=OFF` and debug with a local `.pgm` frame directory.
+`FRIDGE_USE_ONNXRUNTIME` defaults to `ON`, but it only enables the backend when CMake can find the ONNX Runtime headers and library. If OpenCV with `dnn` is unavailable, use `-D FRIDGE_USE_OPENCV=OFF` and debug with a local `.pgm` frame directory. Builds without ONNX Runtime and without OpenCV DNN can still use mock/debug paths, but they do not execute `models/best.onnx`.
