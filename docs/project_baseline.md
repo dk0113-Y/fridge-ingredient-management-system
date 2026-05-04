@@ -20,7 +20,7 @@
 |---|---|---|
 | 最终方案 / 目标架构 | `docs/system_final_design_cpp_only.md` | 全 C/C++ 最终方案设计基线 |
 | 当前仓库入口 | `README.md` | 仓库目录、关键文档和当前限制 |
-| Codex 仓库级执行规则 | `AGENTS.md` | Codex 进入本仓库后的执行、验证、提交和汇报规则 |
+| Codex 仓库级执行规范 | `AGENTS.md` | Codex 在本仓库中执行任务时应遵守的规则 |
 | C++ 实现总览 | `cpp/README.md` | 五模块目录、构建命令、当前实现边界 |
 | Module 1 视觉前段 | `docs/vision_pipeline.md` + `cpp/module_1_event_capture/README.md` | keyframe/event capture |
 | Module 2 YOLO 分析 | `cpp/module_2_yolo_analysis/README.md` | YOLO Runtime、diff analyzer、session replay |
@@ -108,9 +108,9 @@
 
 - GPT 回答当前工程状态、生成 Codex 指令、分析模块实现前，应先读本文档。
 - GPT 生成 Codex 指令时，应遵循 `docs/gpt_codex_workflow.md`，先向用户给出执行前提示，再输出可复制给 Codex 的任务 prompt。
-- Codex 进入本仓库执行任务时，应先读取根目录 `AGENTS.md`，再按其中顺序读取本文档、README、workflow 文档、相关模块 README 和源码。
+- Codex 在仓库中执行任务时，应先读取 `AGENTS.md`；若任务来自 GPT 生成的 prompt，还应遵循 `docs/gpt_codex_workflow.md` 中的协作闭环。
 - 若问题涉及最终架构、赛题得分点或答辩口径，应继续读 `docs/system_final_design_cpp_only.md`。
 - 若问题涉及具体模块实现，应继续读对应模块 README、`CMakeLists.txt`、`configs` 和源码。
-- 若本文档与源码冲突，应明确指出冲突，以源码和最近模块 README 为准，并建议更新本文档。
+- 若 `AGENTS.md`、本文档、源码或模块 README 之间存在冲突，应明确指出冲突，并以当前源码和最近模块 README 作为实现事实来源。
 - Codex 修改代码前，应先读本文档、`README.md`、相关模块 README 和相关源码。
 - Codex 完成影响工程状态的任务后，应同步更新本文档中相关模块状态和未完成清单。

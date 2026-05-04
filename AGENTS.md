@@ -2,11 +2,11 @@
 
 ## 1. 文件定位
 
-本文档是本仓库的 Codex repository-level execution rule file，用于说明 Codex 进入本仓库后应如何读取上下文、修改文件、验证结果、提交和汇报。
+本文档是本仓库的 Codex repository-level execution rule file，用于告诉 Codex 进入本仓库后如何读取上下文、修改文件、验证结果、提交推送和汇报。
 
-本文档不定义最终系统架构，不替代 `docs/project_baseline.md`，不替代 `docs/system_final_design_cpp_only.md`，也不替代未来 `.agents/skills/*/SKILL.md` 下的任务专用 workflow。
+本文档不定义最终系统架构，不替代 Project instructions，不替代 `docs/project_baseline.md`，不替代 `docs/system_final_design_cpp_only.md`，也不替代未来 `.agents/skills/*/SKILL.md` 下的任务专用 workflow。
 
-本仓库相关文档分工如下：
+文档分工：
 
 - Project instructions：ChatGPT Project 顶层硬约束和引用入口。
 - `docs/project_baseline.md`：项目推进索引与当前工程状态总览。
@@ -14,7 +14,7 @@
 - `AGENTS.md`：Codex 在本仓库内执行任务时遵循的仓库级规则。
 - `.agents/skills/*/SKILL.md`：未来可复用、可安装的任务专用 Codex workflow。
 
-如果 `AGENTS.md` 与当前用户 prompt 冲突，优先遵循当前用户 prompt，除非它违反仓库安全规则。如果 `AGENTS.md` 与当前源码或最近模块 README 冲突，应报告冲突，并以当前源码和最近模块 README 作为实现真相。
+如果 `AGENTS.md` 与当前用户 prompt 冲突，优先遵循当前用户 prompt，除非它违反仓库安全规则。如果 `AGENTS.md` 与当前源码或最近模块 README 冲突，应报告冲突，并以当前源码和最近模块 README 作为实现事实来源。
 
 ## 2. 必读文件顺序
 
@@ -50,7 +50,7 @@ Codex 修改文件前应按以下顺序读取上下文：
 
 ## 4. 当前工程边界
 
-当前工程状态以 `docs/project_baseline.md` 为准。简要边界如下：
+当前工程状态以 `docs/project_baseline.md` 为准。本节只作短提醒：
 
 - Module 1 已有 event/keyframe baseline，但仍需要真实摄像头输入和板端验证。
 - Module 2 已有 YOLO runtime，优先 ONNX Runtime，OpenCV DNN fallback，并包含 `YoloDiffAnalyzer`、session replay 和 mock/debug fallback。
@@ -88,74 +88,87 @@ cmake --build build/cpp
 ctest --test-dir build/cpp --output-on-failure
 ```
 
-Module 2 ONNX Runtime backend 可按需增加：
+ONNX Runtime build option：
 
 ```powershell
--D FRIDGE_USE_ONNXRUNTIME=ON -D FRIDGE_ONNXRUNTIME_ROOT=<onnxruntime-sdk-root>
+cmake -S cpp -B build/cpp -G Ninja -D FRIDGE_USE_OPENCV=ON -D FRIDGE_USE_ONNXRUNTIME=ON -D FRIDGE_ONNXRUNTIME_ROOT=<onnxruntime-sdk-root>
 ```
 
 测试与验证规则：
 
-- 文档-only 任务至少运行 `git diff --check` 和范围检查。
-- C++ 代码任务应运行相关 build/tests；如果无法运行，必须说明原因和未验证风险。
-- 涉及 OpenCV、ONNX Runtime、真实摄像头或板端运行的任务，应明确区分本地编译验证、mock/debug 验证和真实硬件验证。
-- 不得把无法验证的外部依赖、硬件行为或云 provider 行为写成已验证。
+- 如果 OpenCV / ONNX Runtime 不可用，必须清楚报告限制。
+- 如果当前环境无法运行 build/test，不得假装已经通过。
+- documentation-only tasks 通常运行 `git diff`、`git diff --name-only` 和 `git diff --check` 即可。
+- C++ code tasks 应在可能时运行相关 build/tests。
+- hardware/camera/board tasks 中，Codex 可以准备代码和本地检查，但真实硬件必须由 human 验证。
+- 不得把无法验证的外部依赖、硬件行为或 cloud provider 行为写成已验证。
 
-## 7. Git 与提交规则
-
-默认工作流是直接在当前 `main` 分支工作，不创建新分支，不创建 PR，除非用户明确要求。
-
-提交和 push 前必须：
-
-- 运行 `git status`。
-- 运行 `git diff` 或 `git diff --name-only`。
-- 确认 changed files 均在任务 scope 内。
-- 完成任务要求的 validation。
-- 使用简洁 commit message。
-
-可以 push 到 `origin/main` 的情况：
-
-- documentation-only tasks 或 small safe code tasks 已完成范围检查和必要验证。
-- code tasks 已运行相关 build/tests，或明确报告 tests 无法运行且任务允许继续。
-
-不得 push 的情况：
-
-- 当前修改导致 tests fail。
-- 任务 scope 已扩大到 prompt 之外。
-- 存在 unrelated uncommitted changes，且无法安全区分本次修改。
-- 修改了模型、数据、生成产物或小程序结构但没有明确许可。
-- Codex 不确定实现是否符合 Human + GPT 已同意的 plan。
-- 用户明确要求不要 push。
-
-## 8. 文档同步规则
+## 7. 文档同步规则
 
 如果任务影响以下内容，必须同步检查并按需更新 `docs/project_baseline.md`：
 
 - 模块完成状态
-- 未完成清单
+- 当前限制
 - P0/P1/P2 优先级
-- 构建/测试方式
-- 推理后端状态
-- 库存持久化状态
-- HTTP server / 小程序联调状态
-- Module 3 接入状态
-- 新增或修改 `AGENTS.md`、`.agents/skills`、关键 workflow 文档
+- 构建/测试命令
+- model runtime backend status
+- SQLite persistence status
+- HTTP server / mini-program integration status
+- Module 3 main-chain integration status
+- `AGENTS.md` 或未来 `.agents/skills` usage rules
 
-如果只做局部文档修正且不改变工程状态，可以不更新 project baseline，但 final report 中应说明未更新原因。
+实现行为变化时，也应更新对应 module README。
 
-## 9. 最终汇报要求
+如果只是 tiny internal changes，且不影响项目状态、模块边界、构建测试方式或用户可见行为，可以不更新 `docs/project_baseline.md`，但 final report 应说明原因。
+
+## 8. Direct-main commit and push policy
+
+默认工作流是直接在当前 `main` 分支工作，不创建新分支，不创建 PR，除非用户明确要求。
+
+可以 commit 并 push 到 `origin/main` 的情况：
+
+- documentation-only tasks 或 small safe changes 已完成范围检查和必要验证。
+- code tasks 已运行相关 validation，或明确报告 validation 无法运行且任务允许继续。
+
+push 前必须：
+
+- 运行 `git status`。
+- 运行 `git diff` 或 `git diff --name-only`。
+- 完成任务要求的 validation checks。
+- 确认 changed files 都在任务 scope 内。
+- 使用 concise commit message。
+
+不得 push 的情况：
+
+- tests fail，并且失败由当前 changes 引起。
+- task scope 已经超出 prompt。
+- 存在 unrelated uncommitted changes，且无法安全区分本次任务修改。
+- modified files 包含 prohibited files。
+- implementation 不符合 Human + GPT 已同意的 plan。
+- user explicitly asked not to push。
+
+## 9. Codex final report requirements
 
 Codex 完成任务后应报告：
 
-- 当前 branch
-- 是否创建 branch 或 PR
-- changed files
-- summary of changes
-- validation run
-- validation result
-- 是否 commit/push
-- commit hash（如已提交）
-- remaining risks / unverified items
-- 是否更新 `docs/project_baseline.md`
+- Branch
+- Commit pushed
+- Commit hash
+- Changed files
+- Summary of changes
+- Validation run
+- Validation result
+- Files intentionally not changed
+- Remaining risks / unverified items
+- Whether `docs/project_baseline.md` was updated
+- Recommended next step
 
 如果没有 push，必须说明原因，并给出 human 下一步需要执行的 exact command 或 decision。
+
+## 10. Language and style
+
+- 除非用户另有要求，user-facing summaries 使用中文。
+- 技术路径、commands、identifiers、class/function names、config names 和 JSON keys 保持原样。
+- 对不确定事项要明确说明。
+- 优先给出 concrete file paths、commands、validation steps 和 changed-file lists。
+- 不夸大完成度，不把 planned target 写成 implemented current state。
