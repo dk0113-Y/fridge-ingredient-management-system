@@ -116,3 +116,30 @@
 - 若 `AGENTS.md`、本文档、源码或模块 README 之间存在冲突，应明确指出冲突，并以当前源码和最近模块 README 作为实现事实来源。
 - Codex 修改代码前，应先读本文档、`README.md`、相关模块 README 和相关源码。
 - Codex 完成影响工程状态的任务后，应同步更新本文档中相关模块状态和未完成清单。
+
+## 9. 文档维护边界
+
+本文档只维护项目推进索引与当前工程状态总览，包括：当前工程状态入口、权威文档入口、模块状态矩阵、基础闭环完成度、明确不做或暂不做事项、P0/P1/P2 优先级，以及简洁的 GPT/Codex 使用规则。
+
+本文档不应展开最终架构设计，不替代 `docs/system_final_design_cpp_only.md`；不替代模块 README 或源码作为实现事实来源；不展开 GPT 方案讨论 workflow、GPT-to-Codex prompt workflow、Codex 仓库级执行规则或未来 Codex skills；也不应变成论文、报告或答辩稿。
+
+文档归属规则：
+
+- 最终架构、目标设计、赛题得分点叙事：`docs/system_final_design_cpp_only.md`。
+- 开放式 GPT + human 方案讨论与工程收口：`docs/gpt_solution_design_workflow.md`。
+- GPT 生成 Codex prompt 与 post-push review：`docs/gpt_codex_workflow.md`。
+- Codex 仓库级执行规则：`AGENTS.md`。
+- 详细实现行为：模块 README files 和 source code。
+- 未来可复用 Codex 任务 workflow：`.agents/skills/*/SKILL.md`。
+
+更新纪律：
+
+- 向本文档添加内容前，先判断内容是否应放在更具体的文档中。
+- 若任务改变当前项目状态、优先级、模块完成度、构建/测试路径、model runtime status、SQLite status、HTTP server / mini-program status 或 Module 3 integration status，应更新本文档。
+- 若任务只改变具体实现行为，应更新相关模块 README、源码注释或局部文档。
+- 若任务改变最终目标架构，应更新 `docs/system_final_design_cpp_only.md`。
+- 若任务改变 GPT 规划 workflow，应更新 `docs/gpt_solution_design_workflow.md`。
+- 若任务改变 Codex prompt 生成 workflow，应更新 `docs/gpt_codex_workflow.md`。
+- 若任务改变 Codex 仓库执行规则，应更新 `AGENTS.md`。
+
+冲突规则：如果本文档与当前源码或最近模块 README 冲突，应报告冲突，并以当前源码或最近模块 README 作为 implementation truth；只有当冲突影响项目状态或阅读指引时，才同步更新本文档。
