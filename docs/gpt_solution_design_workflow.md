@@ -8,6 +8,8 @@
 
 如果方案尚不清楚，应继续停留在 Human + GPT 讨论阶段；如果方案已经明确、范围可控、验收方式清楚，再决定是否交给 Codex。
 
+如果方案讨论过长或必须迁移到新 chat，应使用 `docs/gpt_conversation_handoff_workflow.md` 生成新对话 continuation prompt。
+
 ## 2. 与其它文档的职能边界
 
 | Document | Role | Used when | Should not do |

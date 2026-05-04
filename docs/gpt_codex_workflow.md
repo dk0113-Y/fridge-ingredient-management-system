@@ -8,6 +8,8 @@
 
 开放式方案讨论、可行性判断和 Codex 执行前的工程收口应先使用 `docs/gpt_solution_design_workflow.md`。本文档从 Human + GPT 已达成 actionable plan 之后开始，用于生成 Codex prompt 并审查 Codex pushed result。
 
+如果 Codex prompt generation 或 post-push acceptance 需要迁移到新 chat，应使用 `docs/gpt_conversation_handoff_workflow.md` 生成新对话 continuation prompt。
+
 Project instructions 可以引用本文档，但硬约束优先级高于本文档。如果两者冲突，应以 Project instructions 和用户当前明确要求为准。
 
 当前工程状态入口为 `docs/project_baseline.md`。最终方案设计入口为 `docs/system_final_design_cpp_only.md`。

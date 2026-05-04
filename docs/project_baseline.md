@@ -31,6 +31,7 @@
 | 构建测试 | `cpp/CMakeLists.txt` + `cpp/README.md` | CMake options、test executables |
 | GPT 方案讨论与工程收口 | `docs/gpt_solution_design_workflow.md` | GPT 与人类在进入 Codex 实操前进行方案讨论、可行性判断和工程收口的工作流 |
 | GPT 生成 Codex 指令 | `docs/gpt_codex_workflow.md` | GPT 如何推荐 Codex 配置并生成 Codex prompt |
+| GPT 对话交接提示词 | `docs/gpt_conversation_handoff_workflow.md` | 当前对话过长或需要新开对话时，GPT 如何生成 continuation prompt |
 | Codex 专项实操 skills | `.agents/skills/*/SKILL.md` | 可复用的 Codex 专项任务 workflow；不得复制 `AGENTS.md` 或承担开放式 GPT 方案讨论 |
 
 ## 3. 项目目标简述
@@ -111,6 +112,7 @@
 - GPT 回答当前工程状态、生成 Codex 指令、分析模块实现前，应先读本文档。
 - GPT 与人类讨论新方案、技术路线、改进项或论文/答辩表达时，应先遵循 `docs/gpt_solution_design_workflow.md`；若方案已收口并需要 Codex 执行，再转入 `docs/gpt_codex_workflow.md`。
 - GPT 生成 Codex 指令时，应遵循 `docs/gpt_codex_workflow.md`，先向用户给出执行前提示，再输出可复制给 Codex 的任务 prompt。
+- 当用户要求为新对话生成提示词、转移上下文或让新聊天继续当前任务时，应遵循 `docs/gpt_conversation_handoff_workflow.md`。
 - Codex 在仓库中执行任务时，应先读取 `AGENTS.md`；若任务来自 GPT 生成的 prompt，还应遵循 `docs/gpt_codex_workflow.md` 中的协作闭环。
 - 当 prompt 调用某个 skill 时，Codex 应先遵循 `AGENTS.md`，再按对应 `.agents/skills/<skill>/SKILL.md` 执行专项流程。
 - Skills 只负责专项实操流程，不替代 `AGENTS.md`、`docs/gpt_solution_design_workflow.md` 或 `docs/gpt_codex_workflow.md`。
@@ -131,6 +133,7 @@
 - 最终架构、目标设计、赛题得分点叙事：`docs/system_final_design_cpp_only.md`。
 - 开放式 GPT + human 方案讨论与工程收口：`docs/gpt_solution_design_workflow.md`。
 - GPT 生成 Codex prompt 与 post-push review：`docs/gpt_codex_workflow.md`。
+- GPT 对话交接提示词 workflow：`docs/gpt_conversation_handoff_workflow.md`。
 - Codex 仓库级执行规则：`AGENTS.md`。
 - 详细实现行为：模块 README files 和 source code。
 - 未来可复用 Codex 任务 workflow：`.agents/skills/*/SKILL.md`。
@@ -143,6 +146,7 @@
 - 若任务改变最终目标架构，应更新 `docs/system_final_design_cpp_only.md`。
 - 若任务改变 GPT 规划 workflow，应更新 `docs/gpt_solution_design_workflow.md`。
 - 若任务改变 Codex prompt 生成 workflow，应更新 `docs/gpt_codex_workflow.md`。
+- 若任务改变 GPT 对话交接提示词 workflow，应更新 `docs/gpt_conversation_handoff_workflow.md`。
 - 若任务改变 Codex 仓库执行规则，应更新 `AGENTS.md`。
 
 冲突规则：如果本文档与当前源码或最近模块 README 冲突，应报告冲突，并以当前源码或最近模块 README 作为 implementation truth；只有当冲突影响项目状态或阅读指引时，才同步更新本文档。
