@@ -13,7 +13,7 @@
 1. 本 Project 默认采用“GPT + 人类思考，Codex 实操”的协作模式。
 2. GPT 负责需求澄清、方案判断、技术路线收口、任务拆解、风险识别、Codex prompt 生成。
 3. 人类负责确认任务目标、设置 Codex 会话配置、粘贴 Codex prompt、审查变更、运行真实硬件测试。
-4. Codex 负责读取仓库、修改文件、运行测试、汇报变更。
+4. Codex 负责读取仓库、修改文件、运行测试、在安全时提交并推送、汇报变更。
 5. GPT 生成 Codex 指令前，必须先根据任务类型给出“推荐 Codex 会话配置”。
 6. 模型、思考程度、插件/工具开关、工作目录、分支策略属于人类在 Codex 界面/环境中设置的内容，应在 Codex prompt 之前单独告知用户，不应伪装成 Codex 能自动执行的 prompt 内容。
 7. Codex skills 是例外：如果仓库存在相关 `.agents/skills/<skill-name>/SKILL.md`，GPT 应在 Codex prompt 中显式要求 Codex 使用对应 skill。
@@ -63,6 +63,12 @@ GPT 生成给 Codex 的任务 prompt 必须包含以下部分：
 9. Validation
 10. Done when
 11. Final report requirements
+
+其中：
+
+- `Validation` 必须说明需要运行哪些检查、构建或测试；如果不需要构建/测试，也应说明原因。
+- `Done when` 必须说明完成条件，并明确是否要求 Codex 在安全时 commit/push 到 `origin/main`。
+- `Final report requirements` 必须要求 Codex 报告分支、commit/push 状态、commit hash、changed files、validation results 和 remaining risks。
 
 `Skills to use` 的写法规则：
 
@@ -133,3 +139,92 @@ GPT 生成 Codex 指令时不得：
 - Module 3 接入状态
 
 如果任务新增 `AGENTS.md` 或 `.agents/skills`，也应更新 `docs/project_baseline.md` 的阅读入口或使用规则。
+
+## 9. End-to-end collaboration loop
+
+本 Project 的默认工作流是：
+
+1. Human 和 GPT 讨论需求，确认目标、范围、约束和验收标准。
+2. GPT 识别任务类型、风险、影响模块和可能的验证方式。
+3. GPT 输出给人类看的推荐 Codex 会话配置。
+4. GPT 输出可复制给 Codex 的任务 prompt。
+5. Human 在 Codex 中设置工作目录、模型、思考程度、文件/终端/联网/GitHub 等能力，并粘贴 prompt。
+6. Codex 读取 required docs、必要源码和当前 git 状态。
+7. Codex 在当前 `main` 分支执行任务。
+8. Codex 按 prompt 要求验证变更。
+9. Codex 在安全时 commit 并 push 到 `origin/main`。
+10. Codex 报告 commit hash、changed files、validation results 和 unresolved risks。
+11. Human 将 Codex report 转发给 GPT。
+12. GPT 通过 GitHub connector 或远程仓库检查 pushed commit / remote `main`，并给出 acceptance review 或 follow-up Codex prompt。
+
+该闭环不引入默认分支工作流。除非用户明确要求，GPT 不应建议 Codex 新建分支或打开 PR。
+
+## 10. Commit and push policy
+
+### Default policy
+
+- 对 documentation-only tasks 和 small safe code tasks，Codex 应在验证后 commit 并 push 到 `origin/main`。
+- 对 code tasks，Codex 只有在运行相关 build/tests 后，才应 commit 并 push；如果测试无法运行，Codex 必须清楚报告原因，并且只有在任务明确允许继续时才可 push。
+- Push target 应为 `origin/main`，因为当前项目工作流避免多分支。
+
+### Required before push
+
+Codex push 前必须：
+
+- 运行 `git status`。
+- 运行 `git diff` 或 `git diff --name-only`。
+- 确认 changed files 都在任务 scope 内。
+- 按任务要求运行 required validation。
+- 使用简洁 commit message。
+
+### Do not push when
+
+Codex 不得 push 的情况：
+
+- Tests fail，并且失败由当前 changes 引起。
+- 任务 scope 已经超出 prompt。
+- 任务会修改 model files、data files、generated binaries 或 mini-program structure，但没有明确 permission。
+- 存在 unrelated uncommitted changes，且无法安全区分本次任务变更。
+- Codex 不确定 implementation 是否符合 Human + GPT 已同意的 plan。
+- User explicitly asks not to push。
+
+### If Codex does not push
+
+如果 Codex 不 push，必须：
+
+- 清楚说明原因。
+- 列出 changed files。
+- 提供 human 下一步需要执行的 exact command 或 decision。
+
+## 11. Codex final report format
+
+Codex 完成任务后必须按以下格式汇报：
+
+```markdown
+- Branch:
+- Commit pushed:
+- Commit hash:
+- Changed files:
+- Summary of changes:
+- Validation run:
+- Validation result:
+- Files intentionally not changed:
+- Remaining risks / unverified items:
+- Whether docs/project_baseline.md was updated:
+- Recommended next step:
+```
+
+如果没有 push，`Commit pushed` 应写 `No`，`Commit hash` 应写 `N/A`，并在 `Remaining risks / unverified items` 或 `Recommended next step` 中说明原因和下一步。
+
+## 12. GPT acceptance review after Codex push
+
+当 Human 转发 Codex report 后，GPT 应执行 acceptance review：
+
+- 在可用时通过 GitHub connector 检查 commit 或 remote `main`。
+- 对照 Codex report 和实际 changed files。
+- 验证变更是否符合 Human + GPT 已同意的 plan。
+- 检查本次任务是否应同步更新 `docs/project_baseline.md`。
+- 识别 missing tests、risky changes 或 documentation drift。
+- 给出 acceptance，或生成 follow-up Codex prompt。
+
+GPT 不应仅凭 Codex report 宣称验收通过；如果无法访问远程仓库或无法验证关键事实，应明确说明限制，并给出人工检查项。
