@@ -2,9 +2,11 @@
 
 ## 1. 文档定位
 
-本文档规定本 Project 中 GPT 如何分析任务、向用户推荐 Codex 会话配置，以及如何生成可复制给 Codex 的任务指令。
+本文档规定本 Project 中 GPT 如何分析任务、向用户输出执行前提示，以及如何生成可复制给 Codex 的任务指令。
 
-本文档面向 ChatGPT Project 与人类协作者，不是 Codex 的仓库级执行规范。Codex 的仓库级执行规范后续应放在 `AGENTS.md`。Codex 的可安装工作流包后续应放在 `.agents/skills/*/SKILL.md`。
+本文档面向 ChatGPT Project 与人类协作者，是仓库维护的工作流说明；它不是 Project instructions，也不是 Codex 的仓库级执行规范。Project instructions 提供顶层硬约束和引用入口；本文档展开说明 GPT 如何把 Human + GPT 已同意的计划转化为 Codex execution prompt。Codex 的仓库级执行规范后续应放在 `AGENTS.md`。Codex 的可安装工作流包后续应放在 `.agents/skills/*/SKILL.md`。
+
+Project instructions 可以引用本文档，但硬约束优先级高于本文档。如果两者冲突，应以 Project instructions 和用户当前明确要求为准。
 
 当前工程状态入口为 `docs/project_baseline.md`。最终方案设计入口为 `docs/system_final_design_cpp_only.md`。
 
@@ -12,41 +14,37 @@
 
 1. 本 Project 默认采用“GPT + 人类思考，Codex 实操”的协作模式。
 2. GPT 负责需求澄清、方案判断、技术路线收口、任务拆解、风险识别、Codex prompt 生成。
-3. 人类负责确认任务目标、设置 Codex 会话配置、粘贴 Codex prompt、审查变更、运行真实硬件测试。
+3. 人类负责确认任务目标、决定是否新开 Codex 任务、粘贴 Codex prompt、审查变更、运行真实硬件测试。
 4. Codex 负责读取仓库、修改文件、运行测试、在安全时提交并推送、汇报变更。
-5. GPT 生成 Codex 指令前，必须先根据任务类型给出“推荐 Codex 会话配置”。
-6. 模型、思考程度、插件/工具开关、工作目录、分支策略属于人类在 Codex 界面/环境中设置的内容，应在 Codex prompt 之前单独告知用户，不应伪装成 Codex 能自动执行的 prompt 内容。
+5. GPT 生成 Codex 指令前，必须先根据已同意的计划给出“执行前提示”。
+6. 模型和思考程度建议应由任务风险、影响范围、验证难度和是否需要真实硬件决定；不应机械套用固定表格。
 7. Codex skills 是例外：如果仓库存在相关 `.agents/skills/<skill-name>/SKILL.md`，GPT 应在 Codex prompt 中显式要求 Codex 使用对应 skill。
 
-## 3. 推荐 Codex 会话配置格式
+## 3. GPT 输出给人类的执行前提示
 
-GPT 在输出 Codex prompt 前，应先输出以下配置建议。该部分是给人类看的会话设置，不是给 Codex 执行的任务 prompt。
+GPT 在输出 Codex prompt 前，应先输出以下执行前提示。该部分是给人类看的决策提示，不是 Codex UI 字段，也不是给 Codex 执行的任务 prompt。
 
 ```markdown
-## 推荐 Codex 会话配置
+## 执行前提示
 
-- 工作目录：
-- 分支策略：
 - 推荐模型：
 - 推荐思考程度：
-- 需要开启的能力 / 插件：
-- 是否需要终端：
-- 是否需要构建 / 测试：
-- 是否需要联网：
-- 是否需要 GitHub 访问：
-- 是否建议使用 Codex Skills：
+- 是否建议新开 Codex 任务：
+- 是否允许 Codex commit + push：
+- 是否需要你提前准备本地资源：
+- 是否存在高风险操作：
 - 备注：
 ```
 
-配置判断规则：
+执行前提示的写法规则：
 
-- 文档小改：中等模型 / Medium reasoning 即可。
-- 跨模块代码修改、架构重构、构建失败排查：推荐 strongest available Codex coding model / High reasoning。
-- 只读分析任务：可以不启用文件写入。
-- 需要实际修改代码：必须启用文件编辑。
-- 需要验证构建测试：必须启用终端。
-- 涉及仓库当前状态：必须启用 GitHub 或本地文件访问。
-- 涉及外部依赖、官方文档、库版本：如 Codex 环境支持，应启用联网；否则让 Codex 明确无法验证外部信息。
+- 推荐模型只写能力等级，例如 `fast coding model`、`latest Codex-capable coding model`、`strongest available Codex coding model`，不要绑定不可保证的具体模型名称。
+- 推荐思考程度使用 `Low`、`Medium`、`High`。
+- 是否建议新开 Codex 任务，应根据上下文长度、任务是否独立、是否需要避免旧任务状态干扰判断。
+- 是否允许 Codex commit + push，应根据任务是否小而安全、是否能验证、是否存在 unrelated changes 判断。
+- 是否需要人类提前准备本地资源，应说明真实硬件、摄像头、ONNX Runtime SDK、测试视频、密钥、联网或 GitHub access 等前置条件。
+- 是否存在高风险操作，应说明可能影响源码、构建、模型、数据、小程序、硬件或远端 `main` 的风险。
+- 若任务只读或需要先讨论方案，应明确不建议 Codex 修改文件。
 
 ## 4. Codex Prompt 标准结构
 
@@ -76,22 +74,33 @@ GPT 生成给 Codex 的任务 prompt 必须包含以下部分：
 - 如果不确定 skill 是否存在，写：`If .agents/skills/<skill-name>/SKILL.md exists, use the <skill-name> skill for this task; otherwise continue with the required reading and workflow below.`
 - 如果本轮不需要 skill，写：`No Codex skill is required for this task.`
 
-注意：推荐 Codex 会话配置属于人类设置说明，不应混入 Codex prompt 主体；Codex skill 调用要求属于任务执行要求，可以写入 Codex prompt。
+注意：执行前提示属于人类决策说明，不应混入 Codex prompt 主体；Codex skill 调用要求属于任务执行要求，可以写入 Codex prompt。
 
-## 5. 任务类型与推荐配置
+## 5. 动态模型与思考程度建议
 
-| 任务类型 | 推荐模型 / 思考程度 | 需要开启的能力 | 是否需要 skill |
-|---|---|---|---|
-| 纯文档小改 | fast coding model 或 latest Codex-capable coding model / Medium | 本地文件访问、文件编辑；通常不需要终端 | 通常不需要 |
-| 工程状态文档更新 | latest Codex-capable coding model / Medium | 本地文件访问、文件编辑；必要时只读源码；通常不需要构建 | 通常不需要 |
-| 生成/维护 `AGENTS.md` | strongest available Codex coding model / High | 本地文件访问、文件编辑；需要读取项目基线和模块 README | 可选；若已有文档治理 skill 则使用 |
-| 新增/维护 Codex Skill | strongest available Codex coding model / High | 本地文件访问、文件编辑；必要时终端验证结构 | 需要；若已有 skill-creator 或相关 skill 则使用 |
-| 单模块代码修改 | latest Codex-capable coding model / Medium 或 High | 本地文件访问、文件编辑、终端、构建/测试 | 若存在对应模块 skill 则使用 |
-| 跨模块代码修改 | strongest available Codex coding model / High | 本地文件访问、文件编辑、终端、构建/测试 | 若存在对应模块或集成 skill 则使用 |
-| 构建/测试失败排查 | strongest available Codex coding model / High | 本地文件访问、终端、构建/测试；必要时联网查官方文档 | 可选 |
-| Module 1->2 联调 | strongest available Codex coding model / High | 本地文件访问、文件编辑、终端、构建/测试、读取数据路径 | 若存在视觉/联调 skill 则使用 |
-| SQLite / HTTP server / 小程序接口联调 | strongest available Codex coding model / High | 本地文件访问、文件编辑、终端、构建/测试；必要时联网 | 若存在后端/接口联调 skill 则使用 |
-| 答辩材料和演示文档生成 | latest Codex-capable coding model / Medium | 本地文件访问、文件编辑；如生成 PPT/文档可启用对应插件 | 若存在 presentations/documents skill 则使用 |
+GPT 应根据已同意的计划动态推荐模型和思考程度，而不是按固定任务类型表机械选择。
+
+判断维度：
+
+- 影响范围：只读、单文档、单模块、多模块、跨系统链路。
+- 风险级别：是否触碰源码、构建系统、数据持久化、HTTP server、小程序接口、模型推理、硬件运行。
+- 验证难度：是否只需文档 diff，是否需要单元测试、CMake build、真实摄像头、板端运行或人工硬件验证。
+- 上下文复杂度：是否需要理解最终方案、当前工程状态、历史未完成项和多个 README。
+- 外部依赖：是否涉及官方文档、库版本、SDK、云 provider、GitHub remote 状态。
+
+推荐规则：
+
+- `Low`：只读总结、简单定位、非常小的文字修正，且不需要跨文档推理。
+- `Medium`：文档小改、工程状态文档更新、单模块低风险实现、常规测试补充。
+- `High`：跨模块代码修改、架构重构、构建/测试失败排查、Module 1 -> 2 联调、SQLite / HTTP server / 小程序接口联调、板端部署、可能影响远端 `main` 的复杂任务。
+
+模型建议：
+
+- 简单只读或小文档任务：`fast coding model` 或 `latest Codex-capable coding model`。
+- 普通文档维护和单模块低风险代码任务：`latest Codex-capable coding model`。
+- 跨模块、调试、架构、构建、硬件或持久化相关任务：`strongest available Codex coding model`。
+
+如果任务需要真实硬件、私有密钥、外部 SDK 或远端 GitHub 状态，GPT 应在执行前提示中明确这些前置条件，并在 Codex prompt 中要求 Codex 如实报告无法验证的部分。
 
 ## 6. 仓库读取规则
 
@@ -146,9 +155,9 @@ GPT 生成 Codex 指令时不得：
 
 1. Human 和 GPT 讨论需求，确认目标、范围、约束和验收标准。
 2. GPT 识别任务类型、风险、影响模块和可能的验证方式。
-3. GPT 输出给人类看的推荐 Codex 会话配置。
+3. GPT 输出给人类看的执行前提示。
 4. GPT 输出可复制给 Codex 的任务 prompt。
-5. Human 在 Codex 中设置工作目录、模型、思考程度、文件/终端/联网/GitHub 等能力，并粘贴 prompt。
+5. Human 决定是否新开 Codex 任务、是否允许 commit + push、是否需要准备本地资源，然后粘贴 prompt。
 6. Codex 读取 required docs、必要源码和当前 git 状态。
 7. Codex 在当前 `main` 分支执行任务。
 8. Codex 按 prompt 要求验证变更。

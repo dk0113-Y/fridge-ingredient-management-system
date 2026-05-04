@@ -106,7 +106,7 @@
 ## 8. GPT / Codex 使用规则
 
 - GPT 回答当前工程状态、生成 Codex 指令、分析模块实现前，应先读本文档。
-- GPT 生成 Codex 指令时，应遵循 `docs/gpt_codex_workflow.md`，先向用户给出推荐 Codex 会话配置，再输出可复制给 Codex 的任务 prompt。
+- GPT 生成 Codex 指令时，应遵循 `docs/gpt_codex_workflow.md`，先向用户给出执行前提示，再输出可复制给 Codex 的任务 prompt。
 - 若问题涉及最终架构、赛题得分点或答辩口径，应继续读 `docs/system_final_design_cpp_only.md`。
 - 若问题涉及具体模块实现，应继续读对应模块 README、`CMakeLists.txt`、`configs` 和源码。
 - 若本文档与源码冲突，应明确指出冲突，以源码和最近模块 README 为准，并建议更新本文档。
