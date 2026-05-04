@@ -36,6 +36,7 @@ already implemented.
 
 ## Key Documents
 
+- [`docs/project_baseline.md`](docs/project_baseline.md): project tracking index and current implementation status for GPT/Codex-assisted development
 - [`docs/system_final_design_cpp_only.md`](docs/system_final_design_cpp_only.md): final target architecture baseline
 - [`docs/backend_api_cpp_only.md`](docs/backend_api_cpp_only.md): target C++ local service/API baseline
 - [`docs/vision_pipeline.md`](docs/vision_pipeline.md): module-1 vision front-end notes; module-2 status lives under `cpp/module_2_yolo_analysis/`
