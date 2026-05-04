@@ -31,6 +31,7 @@
 | 构建测试 | `cpp/CMakeLists.txt` + `cpp/README.md` | CMake options、test executables |
 | GPT 方案讨论与工程收口 | `docs/gpt_solution_design_workflow.md` | GPT 与人类在进入 Codex 实操前进行方案讨论、可行性判断和工程收口的工作流 |
 | GPT 生成 Codex 指令 | `docs/gpt_codex_workflow.md` | GPT 如何推荐 Codex 配置并生成 Codex prompt |
+| Codex 专项实操 skills | `.agents/skills/*/SKILL.md` | 可复用的 Codex 专项任务 workflow；不得复制 `AGENTS.md` 或承担开放式 GPT 方案讨论 |
 
 ## 3. 项目目标简述
 
@@ -111,6 +112,8 @@
 - GPT 与人类讨论新方案、技术路线、改进项或论文/答辩表达时，应先遵循 `docs/gpt_solution_design_workflow.md`；若方案已收口并需要 Codex 执行，再转入 `docs/gpt_codex_workflow.md`。
 - GPT 生成 Codex 指令时，应遵循 `docs/gpt_codex_workflow.md`，先向用户给出执行前提示，再输出可复制给 Codex 的任务 prompt。
 - Codex 在仓库中执行任务时，应先读取 `AGENTS.md`；若任务来自 GPT 生成的 prompt，还应遵循 `docs/gpt_codex_workflow.md` 中的协作闭环。
+- 当 prompt 调用某个 skill 时，Codex 应先遵循 `AGENTS.md`，再按对应 `.agents/skills/<skill>/SKILL.md` 执行专项流程。
+- Skills 只负责专项实操流程，不替代 `AGENTS.md`、`docs/gpt_solution_design_workflow.md` 或 `docs/gpt_codex_workflow.md`。
 - 若问题涉及最终架构、赛题得分点或答辩口径，应继续读 `docs/system_final_design_cpp_only.md`。
 - 若问题涉及具体模块实现，应继续读对应模块 README、`CMakeLists.txt`、`configs` 和源码。
 - 若 `AGENTS.md`、本文档、源码或模块 README 之间存在冲突，应明确指出冲突，并以当前源码和最近模块 README 作为实现事实来源。

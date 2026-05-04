@@ -12,9 +12,11 @@
 - `docs/project_baseline.md`：项目推进索引与当前工程状态总览。
 - `docs/gpt_codex_workflow.md`：GPT 如何生成 Codex prompt，以及 GPT 如何审查 Codex 结果。
 - `AGENTS.md`：Codex 在本仓库内执行任务时遵循的仓库级规则。
-- `.agents/skills/*/SKILL.md`：未来可复用、可安装的任务专用 Codex workflow。
+- `.agents/skills/*/SKILL.md`：可复用的 Codex 专项实操 workflow。
 
 如果 `AGENTS.md` 与当前用户 prompt 冲突，优先遵循当前用户 prompt，除非它违反仓库安全规则。如果 `AGENTS.md` 与当前源码或最近模块 README 冲突，应报告冲突，并以当前源码和最近模块 README 作为实现事实来源。
+
+`.agents/skills/*/SKILL.md` 不替代本文档。Codex 仅在当前 prompt 明确调用某个 skill 时使用该 skill；skill 只补充专项实操流程，不用于开放式 brainstorming，也不承担 GPT 方案讨论或 Codex prompt 生成职责。如果 skill 与 `AGENTS.md` 冲突，应报告冲突并遵循 `AGENTS.md`，除非当前用户 prompt 明确且安全地覆盖相关要求。
 
 ## 2. 必读文件顺序
 
