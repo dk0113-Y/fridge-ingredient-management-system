@@ -6,6 +6,8 @@
 
 本文档面向 ChatGPT Project 与人类协作者，是仓库维护的工作流说明；它不是 Project instructions，也不是 Codex 的仓库级执行规范。Project instructions 提供顶层硬约束和引用入口；本文档展开说明 GPT 如何把 Human + GPT 已同意的计划转化为 Codex execution prompt。Codex 的仓库级执行规范后续应放在 `AGENTS.md`。Codex 的可安装工作流包后续应放在 `.agents/skills/*/SKILL.md`。
 
+开放式方案讨论、可行性判断和 Codex 执行前的工程收口应先使用 `docs/gpt_solution_design_workflow.md`。本文档从 Human + GPT 已达成 actionable plan 之后开始，用于生成 Codex prompt 并审查 Codex pushed result。
+
 Project instructions 可以引用本文档，但硬约束优先级高于本文档。如果两者冲突，应以 Project instructions 和用户当前明确要求为准。
 
 当前工程状态入口为 `docs/project_baseline.md`。最终方案设计入口为 `docs/system_final_design_cpp_only.md`。

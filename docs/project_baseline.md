@@ -29,6 +29,7 @@
 | Module 5 本地服务 | `docs/backend_api_cpp_only.md` + `cpp/README.md` | 目标接口与当前 local service facade |
 | 模型资产 | `models/README.md` | `best.pt` / `best.onnx` / runtime backend |
 | 构建测试 | `cpp/CMakeLists.txt` + `cpp/README.md` | CMake options、test executables |
+| GPT 方案讨论与工程收口 | `docs/gpt_solution_design_workflow.md` | GPT 与人类在进入 Codex 实操前进行方案讨论、可行性判断和工程收口的工作流 |
 | GPT 生成 Codex 指令 | `docs/gpt_codex_workflow.md` | GPT 如何推荐 Codex 配置并生成 Codex prompt |
 
 ## 3. 项目目标简述
@@ -107,6 +108,7 @@
 ## 8. GPT / Codex 使用规则
 
 - GPT 回答当前工程状态、生成 Codex 指令、分析模块实现前，应先读本文档。
+- GPT 与人类讨论新方案、技术路线、改进项或论文/答辩表达时，应先遵循 `docs/gpt_solution_design_workflow.md`；若方案已收口并需要 Codex 执行，再转入 `docs/gpt_codex_workflow.md`。
 - GPT 生成 Codex 指令时，应遵循 `docs/gpt_codex_workflow.md`，先向用户给出执行前提示，再输出可复制给 Codex 的任务 prompt。
 - Codex 在仓库中执行任务时，应先读取 `AGENTS.md`；若任务来自 GPT 生成的 prompt，还应遵循 `docs/gpt_codex_workflow.md` 中的协作闭环。
 - 若问题涉及最终架构、赛题得分点或答辩口径，应继续读 `docs/system_final_design_cpp_only.md`。
