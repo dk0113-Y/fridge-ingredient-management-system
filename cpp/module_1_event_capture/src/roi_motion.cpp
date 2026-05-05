@@ -63,16 +63,22 @@ ChangeMaskData build_change_mask(
 
     double global_delta_offset = 0.0;
     if (config.compensate_global_brightness) {
-        double global_delta_sum = 0.0;
+        std::vector<double> raw_deltas;
+        raw_deltas.reserve(roi_pixels);
         for (int local_y = 0; local_y < data.roi.height; ++local_y) {
             for (int local_x = 0; local_x < data.roi.width; ++local_x) {
                 const int x = data.roi.x + local_x;
                 const int y = data.roi.y + local_y;
-                global_delta_sum += static_cast<double>(after_frame.at(x, y)) -
-                    static_cast<double>(before_frame.at(x, y));
+                raw_deltas.push_back(
+                    static_cast<double>(after_frame.at(x, y)) -
+                    static_cast<double>(before_frame.at(x, y))
+                );
             }
         }
-        global_delta_offset = global_delta_sum / static_cast<double>(roi_pixels);
+
+        const auto middle = raw_deltas.begin() + static_cast<std::ptrdiff_t>(raw_deltas.size() / 2);
+        std::nth_element(raw_deltas.begin(), middle, raw_deltas.end());
+        global_delta_offset = *middle;
     }
 
     data.mask.assign(roi_pixels, 0);

@@ -96,6 +96,18 @@ bool test_low_light_put_in() {
     return expect(result.event_type == EventType::PutIn, "low-light block addition should still look like put_in");
 }
 
+bool test_uniform_brightness_shift_returns_no_change() {
+    const auto before = make_frame(8, 8, 100, 0);
+    const auto after = make_frame(8, 8, 125, 1);
+    SelectedFrames selected{before, after, 0, 1, {}};
+    EventDetector detector;
+    const auto result = detector.detect(selected, "test_brightness_shift", "before.jpg", "after.jpg");
+    return expect(
+        result.event_type == EventType::NoChange && result.change_regions.empty(),
+        "uniform lighting changes should be compensated without creating change regions"
+    );
+}
+
 bool test_bright_object_put_in_detected() {
     const auto before = make_frame(8, 8, 120, 0);
     auto after = make_frame(8, 8, 120, 1);
@@ -340,6 +352,7 @@ int main() {
         test_take_out_detected,
         test_partial_candidate_detected,
         test_low_light_put_in,
+        test_uniform_brightness_shift_returns_no_change,
         test_bright_object_put_in_detected,
         test_bright_object_take_out_detected,
         test_hand_occlusion_sequence_returns_no_change,
