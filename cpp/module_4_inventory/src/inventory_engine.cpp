@@ -46,6 +46,15 @@ bool parse_int_value(const std::string& text, int& value) {
     return consumed == text.size();
 }
 
+template <typename Record, typename IdGetter>
+int next_id_after(const std::vector<Record>& records, IdGetter get_id) {
+    int max_id = 0;
+    for (const auto& record : records) {
+        max_id = std::max(max_id, get_id(record));
+    }
+    return max_id + 1;
+}
+
 bool set_config_value(
     InventoryRuntimeConfig& config,
     const std::string& key,
@@ -446,6 +455,39 @@ const std::vector<PendingReviewRecord>& InventoryEngine::pending_reviews() const
 
 const std::vector<InventoryChangeRecord>& InventoryEngine::inventory_change_log() const {
     return change_log_;
+}
+
+InventorySnapshot InventoryEngine::export_snapshot() const {
+    return InventorySnapshot{
+        inventory_items_,
+        event_log_,
+        pending_reviews_,
+        change_log_
+    };
+}
+
+void InventoryEngine::replace_state_for_persistence(const InventorySnapshot& snapshot) {
+    inventory_items_ = snapshot.inventory_items;
+    event_log_ = snapshot.event_log;
+    pending_reviews_ = snapshot.pending_reviews;
+    change_log_ = snapshot.inventory_change_log;
+
+    next_item_id_ = next_id_after(
+        inventory_items_,
+        [](const InventoryItem& item) { return item.item_id; }
+    );
+    next_event_id_ = next_id_after(
+        event_log_,
+        [](const InventoryEventRecord& record) { return record.event_id; }
+    );
+    next_pending_id_ = next_id_after(
+        pending_reviews_,
+        [](const PendingReviewRecord& record) { return record.pending_id; }
+    );
+    next_change_id_ = next_id_after(
+        change_log_,
+        [](const InventoryChangeRecord& record) { return record.change_id; }
+    );
 }
 
 std::string InventoryEngine::last_event_time() const {

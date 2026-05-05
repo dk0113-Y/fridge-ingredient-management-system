@@ -36,7 +36,7 @@
 
 - HTTP 服务：`cpp-httplib` 或 `CivetWeb`
 - JSON：`nlohmann/json`
-- SQLite：`sqlite3`。SQLite 是目标数据库方案；当前库存状态以模块 4 的 in-memory `InventoryEngine` / rule engine baseline 为准。
+- SQLite：`sqlite3`。当前模块 4 已有可选 `SQLiteInventoryStore` persistence baseline；模块 5 facade 仍主要从 `InventoryEngine` 状态生成响应，真实 HTTP server 读取 SQLite 仍待接入。
 
 ---
 
@@ -193,7 +193,7 @@ HTTP 服务不再扫描 `event.json` 进行导入。
 - HTTP 服务从 SQLite 读取库存、事件和待确认数据
 - `event.json` 仅作为调试日志和可追溯记录
 
-当前仓库尚未完成 SQLite adapter / persistence，模块 4 仍以内存库存 mutation、pending review、manual correction 和规则引擎 baseline 为主；模块 5 当前从该 facade/engine 状态生成 JSON 响应。
+当前仓库已有可选 Module 4 SQLite persistence baseline，可保存和恢复 `InventoryEngine` 快照；模块 5 当前仍从 facade/engine 状态生成 JSON 响应，尚未完成真实 HTTP server 直接读取 SQLite。
 
 ---
 

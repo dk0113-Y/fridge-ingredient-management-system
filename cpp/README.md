@@ -23,6 +23,7 @@
   - mock mode, provider config, and remote-call abstraction
 - `module_4_inventory/`
   - inventory rules, pending review, and manual correction logic
+  - optional SQLite persistence adapter for saving and restoring inventory snapshots
 - `module_5_local_service/`
   - local service facade
   - service config loading
@@ -45,7 +46,7 @@ The repository has only partially reached the final 5-module target:
 - module 1 is implemented
 - module 2 now contains the stage-1 heuristic detector, ONNX model-asset inspection/execution through ONNX Runtime first and OpenCV DNN as fallback, grayscale preprocessing, ONNX output decoding, and a separate YOLO diff analyzer
 - module 3 has an independent cloud recognizer skeleton
-- module 4 now has an inventory rule engine with pending-review and manual-update flow
+- module 4 now has an inventory rule engine with pending-review and manual-update flow, plus an optional SQLite persistence baseline when sqlite3 is available
 - module 5 now has a dedicated module directory with a local service facade that exposes health, inventory, events, pending, confirm, and manual-update JSON responses
 - module 2 session replay and the module12 live harness can now write in-memory software closure evidence under each session's `final/` directory: `inventory_response.json`, `events_response.json`, `pending_response.json`, and `software_closure_report.json`
 - an actual embedded/local HTTP server is still pending
@@ -66,6 +67,16 @@ If you want the native ONNX Runtime backend for module 2, add:
 
 `FRIDGE_USE_ONNXRUNTIME` defaults to `ON`, but it only enables the backend when CMake can find the ONNX Runtime headers and library. If OpenCV with `dnn` is unavailable, use `-D FRIDGE_USE_OPENCV=OFF` and debug with a local `.pgm` frame directory. Builds without ONNX Runtime and without OpenCV DNN can still use mock/debug paths, but they do not execute `models/best.onnx`.
 
+SQLite support for module 4 is controlled by:
+
+```powershell
+-D FRIDGE_USE_SQLITE=ON
+```
+
+`FRIDGE_USE_SQLITE` defaults to `ON`, but the SQLite adapter and `fridge_debug_sqlite_persistence` executable are built only when CMake finds sqlite3 development files. If sqlite3 is unavailable, the in-memory inventory flow, software closure debug path, and normal tests still build and run.
+
 ## Software Closure Debug
 
 `fridge_debug_software_closure` exercises the current in-memory Module 2 event -> Module 4 inventory -> Module 5 facade evidence path with deterministic mock/debug events. It covers a committed `put_in`, a matching `take_out`, `partial_take_out_candidate`, `uncertain`, and low-confidence pending-review cases. Its artifacts are debug evidence only; they are not real ONNX, camera, or board validation.
+
+When SQLite support is available, `fridge_debug_sqlite_persistence` writes `sqlite_persistence_debug/fridge_inventory.db` under the build output directory and verifies that inventory, events, pending reviews, and inventory change log records survive reload. This is SQLite debug evidence, not real camera, real ONNX, real HTTP, or board validation.

@@ -69,6 +69,13 @@ struct InventoryChangeRecord {
     std::string source;
 };
 
+struct InventorySnapshot {
+    std::vector<InventoryItem> inventory_items;
+    std::vector<InventoryEventRecord> event_log;
+    std::vector<PendingReviewRecord> pending_reviews;
+    std::vector<InventoryChangeRecord> inventory_change_log;
+};
+
 struct InventoryEventInput {
     std::string session_id;
     std::string timestamp;
@@ -121,6 +128,9 @@ public:
     const std::vector<InventoryEventRecord>& event_log() const;
     const std::vector<PendingReviewRecord>& pending_reviews() const;
     const std::vector<InventoryChangeRecord>& inventory_change_log() const;
+
+    InventorySnapshot export_snapshot() const;
+    void replace_state_for_persistence(const InventorySnapshot& snapshot);
 
     std::string last_event_time() const;
 

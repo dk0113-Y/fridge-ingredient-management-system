@@ -49,7 +49,7 @@
 | Module 1 事件检测与关键帧 | low-cost motion analysis<br>ROI motion summary<br>stable before/after keyframe selection<br>debug artifact output | 真实摄像头输入替换文件输入<br>板端视频解码与长时间运行验证 | 作为真实事件检测和关键帧提取前端 | `docs/vision_pipeline.md`<br>`cpp/module_1_event_capture/README.md` |
 | Module 2 YOLO 分析 | `YoloRuntime`<br>ONNX Runtime 优先执行 `models/best.onnx`<br>OpenCV DNN fallback<br>ONNX output decoding<br>`YoloDiffAnalyzer`<br>detection matching<br>crop planning<br>session replay<br>mock/debug fallback<br>final 软件闭环 evidence 输出 | 真实场景稳定性验证<br>Module 1 -> Module 2 长时间联调<br>板端推理后端验证 | 对 before/after 做 YOLO 粗分类、计数、差异分析和事件判断 | `cpp/module_2_yolo_analysis/README.md`<br>`models/README.md` |
 | Module 3 细粒度识别 | independent fine-grained recognizer client skeleton<br>mock mode<br>provider-neutral config<br>future HTTPS JSON request path | 真实 provider 接入<br>接入 Module 1/2/4 主链路<br>将 `fine_name` / `expiry_info` 写入库存流程 | 对变化目标裁剪图做细粒度识别与保质期辅助推断 | `cpp/module_3_fine_grained/README.md` |
-| Module 4 库存规则 | in-memory `InventoryEngine`<br>inventory mutation<br>pending review<br>manual correction / confirmation flow<br>shelf-life rules baseline<br>Module 2 final event -> `InventoryEventInput` 软件闭环映射 | SQLite adapter / persistence<br>`event_log` / `inventory_change_log` 持久化<br>与真实 HTTP server、小程序联动验证 | C/C++ SQLite 库存数据库与规则引擎 | `cpp/module_4_inventory/README.md`<br>`docs/system_final_design_cpp_only.md` |
+| Module 4 库存规则 | in-memory `InventoryEngine`<br>inventory mutation<br>pending review<br>manual correction / confirmation flow<br>shelf-life rules baseline<br>Module 2 final event -> `InventoryEventInput` 软件闭环映射<br>可选 `SQLiteInventoryStore` 持久化 baseline | SQLite baseline 在真实 HTTP server / 小程序联动中的接入验证<br>板端 sqlite3 依赖与长期运行验证 | C/C++ SQLite 库存数据库与规则引擎 | `cpp/module_4_inventory/README.md`<br>`docs/system_final_design_cpp_only.md` |
 | Module 5 本地服务 | local service facade<br>health / inventory / events / pending / confirm / manual-update JSON responses<br>session `final/` 中的 inventory/events/pending/closure report evidence | 真实 embedded/local HTTP server<br>端口监听<br>路由绑定<br>小程序真实联调 | 本地 HTTP API 与主控调度服务 | `docs/backend_api_cpp_only.md`<br>`cpp/README.md` |
 
 ## 5. 当前基础闭环完成度
@@ -63,7 +63,7 @@
 | 部分取出候选 | 已有 baseline | 仅限果蔬类 `partial_take_out_candidate`，不覆盖饮料体积识别 |
 | 细粒度识别 | 部分完成 | Module 3 是独立 client skeleton / mock / provider config，未接主链路 |
 | 库存规则更新 | 已有软件闭环 baseline | Module 4 已有 in-memory mutation、pending review 和 manual correction；Module 2 final event 可映射到 `InventoryEventInput` 并应用到 `InventoryEngine` |
-| SQLite 持久化 | 尚未完成 | SQLite 是目标 adapter / persistence 方案，当前未落地 |
+| SQLite 持久化 | baseline 已实现 | Module 4 已有可选 `SQLiteInventoryStore`，可保存/恢复 inventory、event_log、pending_review、inventory_change_log；仅在 CMake 找到 sqlite3 development files 时构建和验证，尚未接入真实 HTTP server / 小程序 / 板端长期运行 |
 | 本地服务接口 | 部分完成 | Module 5 已有 JSON response facade；session `final/` 可输出 inventory/events/pending/closure report evidence，尚无真实 HTTP server |
 | 小程序联调 | 尚未完成 | 小程序结构保留，真实接口联调待做 |
 | 板端部署 | 待验证 | 视频解码、推理后端、运行资源和长时间稳定性需验证 |
@@ -93,7 +93,7 @@
 
 ### P1：持久化与服务联调
 
-- SQLite adapter / persistence。
+- SQLite baseline 接入真实 HTTP server / 小程序联调，并做板端 sqlite3 长期运行验证。
 - 真实 HTTP server。
 - 小程序接口联调。
 - 事件日志、库存日志、pending review 闭环。

@@ -10,6 +10,7 @@ add_compile_definitions(FRIDGE_CPP_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 option(FRIDGE_USE_OPENCV "Enable OpenCV-based video decoding and JPG export" ON)
 option(FRIDGE_USE_ONNXRUNTIME "Enable ONNX Runtime-based YOLO inference backend" ON)
 option(FRIDGE_BUILD_CLOUD_CLASSIFIER "Build the independent cloud fine-grained recognizer skeleton" ON)
+option(FRIDGE_USE_SQLITE "Enable SQLite-backed Module 4 inventory persistence adapter" ON)
 
 set(FRIDGE_ONNXRUNTIME_ROOT "" CACHE PATH "Root directory of an ONNX Runtime SDK install")
 
@@ -48,6 +49,15 @@ if(FRIDGE_USE_ONNXRUNTIME)
     else()
         set(ONNXRUNTIME_FOUND FALSE)
         message(STATUS "ONNX Runtime not found, module-2 will not use the ONNX Runtime backend.")
+    endif()
+endif()
+
+if(FRIDGE_USE_SQLITE)
+    find_package(SQLite3 QUIET)
+    if(SQLite3_FOUND)
+        message(STATUS "SQLite3 found, module-4 SQLite persistence debug is enabled.")
+    else()
+        message(STATUS "SQLite3 development files not found, module-4 SQLite persistence adapter will not be built.")
     endif()
 endif()
 
@@ -103,6 +113,22 @@ add_library(fridge_local_service
     module_5_local_service/src/software_closure.cpp
 )
 
+if(SQLite3_FOUND)
+    add_library(fridge_inventory_sqlite
+        module_4_inventory/src/sqlite_inventory_store.cpp
+    )
+    target_include_directories(fridge_inventory_sqlite
+        PUBLIC
+            ${CMAKE_CURRENT_SOURCE_DIR}/module_1_event_capture/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/module_4_inventory/include
+    )
+    target_link_libraries(fridge_inventory_sqlite
+        PUBLIC
+            fridge_inventory
+            SQLite::SQLite3
+    )
+endif()
+
 target_include_directories(fridge_local_service
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/module_5_local_service/include
@@ -154,6 +180,14 @@ add_executable(fridge_debug_module_4
 )
 target_link_libraries(fridge_debug_module_4 PRIVATE fridge_inventory)
 add_test(NAME fridge_debug_module_4 COMMAND fridge_debug_module_4)
+
+if(SQLite3_FOUND)
+    add_executable(fridge_debug_sqlite_persistence
+        tests/debug_sqlite_persistence.cpp
+    )
+    target_link_libraries(fridge_debug_sqlite_persistence PRIVATE fridge_inventory_sqlite)
+    add_test(NAME fridge_debug_sqlite_persistence COMMAND fridge_debug_sqlite_persistence)
+endif()
 
 add_executable(fridge_debug_module_5
     tests/debug_module_5_local_service.cpp
