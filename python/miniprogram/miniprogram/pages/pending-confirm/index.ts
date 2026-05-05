@@ -27,7 +27,7 @@ function getRemainIndex(remainLevel: number) {
   return target >= 0 ? target : 2
 }
 
-Page<PendingConfirmPageData>({
+Page<PendingConfirmPageData, WechatMiniprogram.IAnyObject>({
   data: {
     sessionId: "",
     name: "",
@@ -107,6 +107,7 @@ Page<PendingConfirmPageData>({
         session_id: this.data.sessionId,
         item_name: name,
         category,
+        count_delta: -1,
         remain_level: remainLevel,
         note: `修改后确认：${getCategoryLabel(category)} / ${this.data.remainPreviewText}`,
       })

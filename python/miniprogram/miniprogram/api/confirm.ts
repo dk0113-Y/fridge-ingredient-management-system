@@ -1,47 +1,76 @@
 import { request } from "../utils/request"
 
-interface ConfirmResponse {
-  status: string
-  action: string
-  session_id: string
+export interface MutationResponse {
+  ok: boolean
+  session_id?: string
+  item_name?: string
+  message: string
 }
 
-interface ManualAdjustPayload {
-  action: "manual_adjust"
-  inventory_id?: number
+interface ManualUpdatePayload {
+  item_name: string
+  category: string
+  count: number
+  remain_level: number
+  expire_date: string
+  note: string
+}
+
+interface ApplyPartialPayload {
+  action: "accept"
+  session_id: string
   item_name: string
   category: string
   count_delta: number
   remain_level: number
+  note: string
 }
 
-interface ApplyPartialPayload {
-  action: "apply_partial"
+interface ApplyPartialInput {
   session_id: string
   item_name: string
   category: string
+  count_delta?: number
   remain_level: number
   note?: string
 }
 
-export function manualAdjustInventory(payload: Omit<ManualAdjustPayload, "action">) {
-  return request<ConfirmResponse, ManualAdjustPayload>({
-    url: "/confirm",
+interface ManualUpdateInput {
+  item_name: string
+  category: string
+  count: number
+  remain_level: number
+  expire_date?: string
+  note?: string
+}
+
+export function manualAdjustInventory(payload: ManualUpdateInput) {
+  return request<MutationResponse, ManualUpdatePayload>({
+    url: "/manual_update",
     method: "POST",
     data: {
-      action: "manual_adjust",
-      ...payload,
+      item_name: payload.item_name,
+      category: payload.category,
+      count: payload.count,
+      remain_level: payload.remain_level,
+      expire_date: payload.expire_date || "",
+      note: payload.note || "",
     },
   })
 }
 
-export function applyPartialConfirmation(payload: Omit<ApplyPartialPayload, "action">) {
-  return request<ConfirmResponse, ApplyPartialPayload>({
+export function applyPartialConfirmation(payload: ApplyPartialInput) {
+  return request<MutationResponse, ApplyPartialPayload>({
     url: "/confirm",
     method: "POST",
     data: {
-      action: "apply_partial",
-      ...payload,
+      action: "accept",
+      session_id: payload.session_id,
+      item_name: payload.item_name,
+      category: payload.category,
+      count_delta: payload.count_delta ?? -1,
+      remain_level: payload.remain_level,
+      note: payload.note || "",
     },
   })
 }

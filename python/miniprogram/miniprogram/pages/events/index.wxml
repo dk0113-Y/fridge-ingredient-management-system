@@ -1,6 +1,6 @@
 <view class="page events-page">
   <view class="page-head">
-    <view class="back-button" bindtap="handleGoHome">‹</view>
+    <view class="back-button" bindtap="handleGoHome">&lt;</view>
     <view class="page-title">最近事件</view>
     <view class="page-spacer"></view>
   </view>

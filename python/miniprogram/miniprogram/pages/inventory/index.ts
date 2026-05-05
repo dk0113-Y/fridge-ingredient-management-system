@@ -37,7 +37,7 @@ function mapInventoryItem(item: InventoryItem): InventoryViewItem {
   }
 }
 
-Page<InventoryPageData>({
+Page<InventoryPageData, WechatMiniprogram.IAnyObject>({
   data: {
     loading: true,
     errorText: "",

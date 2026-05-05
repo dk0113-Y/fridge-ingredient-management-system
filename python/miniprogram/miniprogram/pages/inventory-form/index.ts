@@ -19,16 +19,14 @@ interface InventoryFormData {
   saving: boolean
   deleting: boolean
   isEditMode: boolean
-  originalId: number | null
   originalName: string
   originalCategory: string
-  originalCount: number
 }
 
 const CATEGORY_OPTIONS = [
-  { value: "produce", label: "蔬果类" },
-  { value: "fresh_protein", label: "肉蛋生鲜类" },
-  { value: "beverage_dairy", label: "饮料乳品类" },
+  { value: "fruit_vegetable", label: "果蔬类" },
+  { value: "meat_egg_fresh", label: "肉蛋生鲜类" },
+  { value: "drink", label: "饮料类" },
   { value: "packaged_food", label: "包装食品类" },
   { value: "other", label: "其他" },
 ]
@@ -49,15 +47,15 @@ function buildCategoryOptions(currentCategory: string) {
 
 function normalizeCategory(category: string) {
   if (category === "fruit" || category === "vegetable" || category === "produce") {
-    return "produce"
+    return "fruit_vegetable"
   }
 
-  if (category === "protein" || category === "fresh_protein") {
-    return "fresh_protein"
+  if (category === "protein" || category === "fresh_protein" || category === "meat_egg_fresh") {
+    return "meat_egg_fresh"
   }
 
   if (category === "drink" || category === "beverage_dairy") {
-    return "beverage_dairy"
+    return "drink"
   }
 
   if (category === "packaged_food") {
@@ -71,7 +69,7 @@ function normalizeCategory(category: string) {
   return "other"
 }
 
-Page<InventoryFormData>({
+Page<InventoryFormData, WechatMiniprogram.IAnyObject>({
   data: {
     mode: "add",
     pageTitle: "新增库存",
@@ -85,10 +83,8 @@ Page<InventoryFormData>({
     saving: false,
     deleting: false,
     isEditMode: false,
-    originalId: null,
     originalName: "",
     originalCategory: "",
-    originalCount: 0,
   },
 
   onLoad(options: Record<string, string>) {
@@ -131,10 +127,8 @@ Page<InventoryFormData>({
       sliderValue: Math.round(currentItem.remain_level * 100),
       remainPercentText: getRemainPercentText(currentItem.remain_level),
       isEditMode: true,
-      originalId: currentItem.id,
       originalName: currentItem.name,
       originalCategory: currentItem.category,
-      originalCount: currentItem.count,
     })
 
     wx.setNavigationBarTitle({
@@ -206,22 +200,13 @@ Page<InventoryFormData>({
     })
 
     try {
-      if (this.data.mode === "add") {
-        await manualAdjustInventory({
-          item_name: name,
-          category,
-          count_delta: count,
-          remain_level: remainLevel,
-        })
-      } else {
-        await manualAdjustInventory({
-          inventory_id: this.data.originalId ?? undefined,
-          item_name: name,
-          category,
-          count_delta: count - this.data.originalCount,
-          remain_level: remainLevel,
-        })
-      }
+      await manualAdjustInventory({
+        item_name: name,
+        category,
+        count,
+        remain_level: remainLevel,
+        note: this.data.mode === "add" ? "mini-program manual add" : "mini-program manual edit",
+      })
 
       wx.showToast({
         title: "保存成功",
@@ -262,11 +247,11 @@ Page<InventoryFormData>({
 
     try {
       await manualAdjustInventory({
-        inventory_id: this.data.originalId ?? undefined,
         item_name: this.data.originalName,
         category: this.data.originalCategory,
-        count_delta: -this.data.originalCount,
+        count: 0,
         remain_level: this.data.remainLevel,
+        note: "mini-program manual delete",
       })
 
       wx.showToast({

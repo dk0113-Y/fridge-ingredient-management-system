@@ -11,17 +11,13 @@ export function getEventTypeMeta(eventType: string) {
     return { text: "待确认", tagClass: "tag-low" }
   }
 
-  if (eventType === "manual_add") {
-    return { text: "手动新增", tagClass: "tag-good" }
+  if (eventType === "uncertain") {
+    return { text: "不确定", tagClass: "tag-low" }
   }
 
-  if (eventType === "manual_edit") {
-    return { text: "手动修改", tagClass: "tag-mid" }
+  if (eventType === "no_change") {
+    return { text: "无变化", tagClass: "tag-neutral" }
   }
 
-  if (eventType === "manual_delete") {
-    return { text: "手动删除", tagClass: "tag-low" }
-  }
-
-  return { text: "无变化", tagClass: "tag-neutral" }
+  return { text: eventType || "未知事件", tagClass: "tag-neutral" }
 }

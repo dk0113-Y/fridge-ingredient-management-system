@@ -203,3 +203,20 @@ HTTP 服务不再扫描 `event.json` 进行导入。
 2. 不再保留 Python/Flask 作为最终架构组成部分。
 3. 小程序当前不做调整，因此接口字段尽量保持稳定。
 4. 目标事件主链为“C/C++ 主程序内部处理并直接写库”，而非“扫描 JSON 再导入数据库”；当前已有软件闭环可选 SQLite load/save baseline 和本地 HTTP server baseline，仍需补齐小程序真实联调、板端部署和长时间稳定性验证。
+
+## Mini-program local debug notes
+
+The retained mini-program now targets the C++ local HTTP API instead of the old
+Python/Flask response shape. Its adapter layer normalizes C++ fields such as
+`item_id`, `item_name`, `last_update_time`, and label-style `remain_level`
+values into the existing page view models.
+
+Local debug baseUrl examples:
+
+- WeChat Developer Tools simulator on the same PC: `http://127.0.0.1:8080`
+- Real phone/device on LAN: `http://<board-or-PC-ip>:8080`
+
+For local HTTP debugging in WeChat Developer Tools, disable legal domain checks.
+Real phone LAN validation, board deployment, long-running HTTP/SQLite stability,
+real camera validation, and real ONNX Runtime validation remain manual/unverified
+unless separately recorded.

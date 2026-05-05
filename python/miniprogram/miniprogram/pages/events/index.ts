@@ -1,6 +1,10 @@
 import { EventItem, fetchEvents } from "../../api/events"
 import { getEventTypeMeta } from "../../utils/event-display"
-import { formatUpdatedAt } from "../../utils/inventory-display"
+import {
+  formatUpdatedAt,
+  getCategoryLabel,
+  getNameLabel,
+} from "../../utils/inventory-display"
 
 interface EventViewItem {
   id: number
@@ -18,24 +22,11 @@ interface EventsPageData {
 }
 
 function getEventObjectText(item: EventItem) {
-  if (item.event_type.startsWith("manual_")) {
-    const prefix = `${item.event_type}_`
+  const nameText = getNameLabel(item.fine_name || item.coarse_class)
+  const categoryText = getCategoryLabel(item.coarse_class)
+  const quantityText = item.quantity_delta === 0 ? "" : ` / ${item.quantity_delta > 0 ? "+" : ""}${item.quantity_delta}`
 
-    if (item.session_id.startsWith(prefix)) {
-      const rawName = item.session_id.slice(prefix.length)
-      const lastUnderlineIndex = rawName.lastIndexOf("_")
-
-      if (lastUnderlineIndex > 0) {
-        return rawName.slice(0, lastUnderlineIndex)
-      }
-
-      return rawName || "手动操作"
-    }
-
-    return "手动操作"
-  }
-
-  return item.session_id
+  return `${nameText}（${categoryText}${quantityText}）`
 }
 
 function mapEventItem(item: EventItem): EventViewItem {
@@ -49,7 +40,7 @@ function mapEventItem(item: EventItem): EventViewItem {
   }
 }
 
-Page<EventsPageData>({
+Page<EventsPageData, WechatMiniprogram.IAnyObject>({
   data: {
     loading: true,
     errorText: "",

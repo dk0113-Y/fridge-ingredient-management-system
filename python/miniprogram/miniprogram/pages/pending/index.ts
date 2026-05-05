@@ -1,5 +1,5 @@
 import { applyPartialConfirmation } from "../../api/confirm"
-import { fetchInventory, PendingConfirmation } from "../../api/inventory"
+import { fetchPending, PendingConfirmation } from "../../api/pending"
 import {
   formatUpdatedAt,
   getCategoryLabel,
@@ -30,24 +30,23 @@ interface PendingPageData {
 }
 
 function mapPendingItem(item: PendingConfirmation): PendingViewItem {
-  const remainLevel = item.remain_level ?? 0.5
-  const remainMeta = getRemainMeta(remainLevel)
+  const remainMeta = getRemainMeta(item.remain_level)
 
   return {
     id: item.id,
     sessionId: item.session_id,
     itemName: item.item_name,
     category: item.category,
-    remainLevel,
+    remainLevel: item.remain_level,
     displayName: getNameLabel(item.item_name),
     displayCategory: getCategoryLabel(item.category),
     remainText: remainMeta.label,
-    noteText: item.note || "等待人工确认当前识别结果。",
+    noteText: item.reason || "等待人工确认当前识别结果。",
     createdText: formatUpdatedAt(item.created_at),
   }
 }
 
-Page<PendingPageData>({
+Page<PendingPageData, WechatMiniprogram.IAnyObject>({
   data: {
     loading: true,
     errorText: "",
@@ -68,8 +67,8 @@ Page<PendingPageData>({
     })
 
     try {
-      const response = await fetchInventory()
-      const items = response.pending_confirmations.map(mapPendingItem)
+      const response = await fetchPending()
+      const items = response.pending.map(mapPendingItem)
 
       this.setData({
         loading: false,
@@ -111,6 +110,7 @@ Page<PendingPageData>({
         session_id: currentItem.sessionId,
         item_name: currentItem.itemName,
         category: currentItem.category,
+        count_delta: -1,
         remain_level: currentItem.remainLevel,
         note: "小程序确认通过。",
       })

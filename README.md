@@ -48,4 +48,4 @@ already implemented.
 - `models/best.pt` is retained as the original training/export weight file
 - builds without ONNX Runtime / OpenCV DNN still fall back to mock / `.pgm` debug paths and do not execute the ONNX graph
 - module 4 still uses `InventoryEngine` as the rule engine, but software closure/session runs can optionally load/save its state through SQLite when sqlite3 is available
-- module 5 now has a lightweight C++ local HTTP server baseline over the facade; mini-program integration, board deployment, and long-running HTTP/SQLite validation are still pending
+- module 5 now has a lightweight C++ local HTTP server baseline over the facade; the retained mini-program has an API adapter baseline for these C++ local HTTP routes, while real WeChat Developer Tools, phone LAN, board, camera, and long-running HTTP/SQLite validation are still pending

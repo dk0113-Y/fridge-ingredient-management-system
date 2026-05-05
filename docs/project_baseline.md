@@ -150,3 +150,17 @@
 - 若任务改变 Codex 仓库执行规则，应更新 `AGENTS.md`。
 
 冲突规则：如果本文档与当前源码或最近模块 README 冲突，应报告冲突，并以当前源码或最近模块 README 作为 implementation truth；只有当冲突影响项目状态或阅读指引时，才同步更新本文档。
+
+## 2026-05-05 status note: mini-program C++ API adapter
+
+The retained mini-program now has an API adapter baseline for the current C++
+local HTTP service routes: `GET /health`, `GET /inventory`, `GET /events`,
+`GET /pending`, `POST /confirm`, and `POST /manual_update`. This updates the
+mini-program consumer layer only; the C++ backend contract remains the source of
+truth.
+
+Validation status remains limited to repository build/test, static
+mini-program checks, and local HTTP debug where run. Real WeChat Developer Tools
+operation, phone LAN testing, board deployment, real camera validation, real
+ONNX Runtime validation, and long-running HTTP/SQLite stability remain pending
+unless separately recorded.

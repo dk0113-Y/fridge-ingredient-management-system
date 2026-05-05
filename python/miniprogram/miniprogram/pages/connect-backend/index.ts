@@ -1,4 +1,4 @@
-import { fetchHealth } from "../../api/system"
+import { HealthResponse, fetchHealth } from "../../api/system"
 import {
   buildBaseUrl,
   getCurrentBaseUrl,
@@ -26,11 +26,18 @@ interface ConnectBackendPageData {
   heroAddressText: string
 }
 
-Page<ConnectBackendPageData>({
+function buildHealthSummary(health: HealthResponse) {
+  const dbText = health.db_ready ? "数据库可用" : "数据库未就绪"
+  const bindText = health.bind_host ? `${health.bind_host}:${health.port || 8080}` : `:${health.port || 8080}`
+  const eventText = health.last_event_time ? `最近事件 ${health.last_event_time}` : "暂无事件时间"
+  return `连接成功：${health.service}，${dbText}，监听 ${bindText}，${eventText}。`
+}
+
+Page<ConnectBackendPageData, WechatMiniprogram.IAnyObject>({
   data: {
     currentBaseUrl: "",
     ip: "",
-    port: "5000",
+    port: "8080",
     previewBaseUrl: "",
     previewText: "请先输入 IP 与端口",
     previewFieldClass: "field-picker field-placeholder",
@@ -68,8 +75,8 @@ Page<ConnectBackendPageData>({
       testResultText: "",
       testResultClass: "test-result test-error",
       heroStateText: "当前地址",
-      heroHintText: "推荐先测试连接，再保存并使用。",
-      heroCenterText: "后端",
+      heroHintText: "推荐先测试 C++ 本地服务连接，再保存并使用。",
+      heroCenterText: "本地服务",
       heroAddressText: currentBaseUrl,
     })
   },
@@ -81,7 +88,7 @@ Page<ConnectBackendPageData>({
         previewText: "请先输入 IP 与端口",
         previewFieldClass: "field-picker field-placeholder",
         heroStateText: "等待输入",
-        heroHintText: "请输入电脑本地或局域网中的后端地址。",
+        heroHintText: "请输入电脑本地、板端或局域网中的 C++ 本地服务地址。",
         heroCenterText: "未配置",
         heroAddressText: "请先输入 IP 与端口",
       })
@@ -94,7 +101,7 @@ Page<ConnectBackendPageData>({
       previewText: previewBaseUrl,
       previewFieldClass: "field-picker",
       heroStateText: "待测试",
-      heroHintText: "当前为待测试地址，点击“测试连接”验证可用性。",
+      heroHintText: "当前为待测试地址，点击“测试连接”验证 C++ 本地服务可用性。",
       heroCenterText: "待测试",
       heroAddressText: previewBaseUrl,
     })
@@ -150,7 +157,7 @@ Page<ConnectBackendPageData>({
       hasTestResult: false,
       testResultText: "",
       heroStateText: "测试中",
-      heroHintText: "正在向后端发送健康检查请求。",
+      heroHintText: "正在向 C++ 本地服务发送健康检查请求。",
       heroCenterText: "检测中",
       heroAddressText: this.data.previewBaseUrl,
     })
@@ -161,9 +168,9 @@ Page<ConnectBackendPageData>({
         testing: false,
         hasTestResult: true,
         testResultClass: "test-result test-success",
-        testResultText: `连接成功：库存 ${health.inventory_items} 项，事件 ${health.events} 条，待确认 ${health.pending_confirmations} 条。`,
+        testResultText: buildHealthSummary(health),
         heroStateText: "连接成功",
-        heroHintText: "该地址可用，点击“保存并使用”即可切换当前后端。",
+        heroHintText: "该地址可用，点击“保存并使用”即可切换当前本地服务。",
         heroCenterText: "已连接",
         heroAddressText: this.data.previewBaseUrl,
       })
@@ -174,7 +181,7 @@ Page<ConnectBackendPageData>({
         testResultClass: "test-result test-error",
         testResultText: error instanceof Error ? error.message : "连接失败。",
         heroStateText: "连接失败",
-        heroHintText: "请检查 IP、端口或 Flask 服务是否正常运行。",
+        heroHintText: "请检查 IP、端口或 C++ local HTTP server 是否正常运行。",
         heroCenterText: "不可达",
         heroAddressText: this.data.previewBaseUrl,
       })
@@ -203,7 +210,7 @@ Page<ConnectBackendPageData>({
       recentBaseUrls,
       showEmptyHistory: recentBaseUrls.length === 0,
       heroStateText: "当前地址",
-      heroHintText: "新的 baseURL 已保存，后续请求会自动使用该地址。",
+      heroHintText: "新的 baseUrl 已保存，后续请求会自动使用该地址。",
       heroCenterText: "已保存",
       heroAddressText: savedUrl,
     })

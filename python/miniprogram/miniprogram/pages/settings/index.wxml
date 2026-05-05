@@ -10,28 +10,29 @@
     </view>
 
     <view class="settings-address-card">
-      <view class="settings-address-label">当前后端地址</view>
+      <view class="settings-address-label">当前本地服务地址</view>
       <view class="settings-address-value">{{baseUrl}}</view>
     </view>
   </view>
 
   <view class="card settings-block">
     <view class="section-title">当前状态</view>
-    <view class="section-subtitle">基于当前保存地址读取后端健康检查结果。</view>
+    <view class="section-subtitle">基于当前保存地址读取 C++ 本地服务健康检查结果。</view>
     <view class="settings-summary">{{summaryText}}</view>
 
     <view class="button-row settings-actions">
       <button class="outline-button" bindtap="loadConnectionState" loading="{{checking}}">
         刷新状态
       </button>
-      <button class="primary-button" bindtap="handleOpenConnectPage">连接后端</button>
+      <button class="primary-button" bindtap="handleOpenConnectPage">连接本地服务</button>
     </view>
   </view>
 
   <view class="card settings-block">
     <view class="section-title">联调说明</view>
-    <view class="settings-note">电脑本地调试可使用 127.0.0.1:5000。</view>
-    <view class="settings-note">真机联调时请改为电脑局域网 IP，例如 192.168.x.x:5000。</view>
+    <view class="settings-note">微信开发者工具本地调试可使用 http://127.0.0.1:8080。</view>
+    <view class="settings-note">真机联调时请改为电脑或板端局域网 IP，例如 http://192.168.x.x:8080。</view>
+    <view class="settings-note">本地 HTTP 调试需要在开发者工具中勾选“不校验合法域名”。</view>
     <view class="settings-note">版本信息：{{versionText}}</view>
   </view>
 </view>

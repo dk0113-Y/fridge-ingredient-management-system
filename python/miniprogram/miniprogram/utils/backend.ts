@@ -41,7 +41,7 @@ export function saveCurrentBaseUrl(url: string) {
 
 export function buildBaseUrl(ip: string, port: string) {
   const cleanIp = ip.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "")
-  const cleanPort = port.trim() || "5000"
+  const cleanPort = port.trim() || "8080"
   return normalizeBaseUrl(`http://${cleanIp}:${cleanPort}`)
 }
 
@@ -51,6 +51,6 @@ export function parseBaseUrl(url: string) {
 
   return {
     ip: matched?.[1] || "",
-    port: matched?.[2] || "5000",
+    port: matched?.[2] || "8080",
   }
 }

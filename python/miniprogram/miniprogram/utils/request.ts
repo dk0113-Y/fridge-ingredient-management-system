@@ -11,6 +11,23 @@ interface RequestOptions<TData> {
   baseUrl?: string
 }
 
+function formatResponseError(statusCode: number, responseData: unknown) {
+  if (
+    responseData &&
+    typeof responseData === "object" &&
+    "error" in responseData &&
+    typeof responseData.error === "string"
+  ) {
+    return `请求失败：HTTP ${statusCode} - ${responseData.error}`
+  }
+
+  if (typeof responseData === "string") {
+    return `请求失败：HTTP ${statusCode} - ${responseData}`
+  }
+
+  return `请求失败：HTTP ${statusCode}`
+}
+
 export function request<TResponse, TData = Record<string, unknown>>(
   options: RequestOptions<TData>,
 ): Promise<TResponse> {
@@ -23,7 +40,7 @@ export function request<TResponse, TData = Record<string, unknown>>(
     wx.request({
       url: resolvedUrl,
       method,
-      data,
+      data: data as WechatMiniprogram.IAnyObject | string | ArrayBuffer | undefined,
       timeout: env.timeout,
       header: {
         "Content-Type": "application/json",
@@ -36,18 +53,12 @@ export function request<TResponse, TData = Record<string, unknown>>(
           return
         }
 
-        reject(
-          new Error(
-            `请求失败：HTTP ${statusCode}${
-              typeof responseData === "string" ? ` - ${responseData}` : ""
-            }`,
-          ),
-        )
+        reject(new Error(formatResponseError(statusCode, responseData)))
       },
       fail: () => {
         reject(
           new Error(
-            `无法连接到后端：${resolvedBaseUrl}。请确认 Flask 服务已启动，并且已勾选开发者工具里的“不校验合法域名”选项。`,
+            `无法连接到本地服务：${resolvedBaseUrl}。请确认 C++ local HTTP server 已启动，并且开发者工具已勾选“不校验合法域名”。`,
           ),
         )
       },

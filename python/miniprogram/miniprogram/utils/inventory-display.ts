@@ -2,15 +2,17 @@ import { InventoryItem } from "../api/inventory"
 import { formatTime } from "./util"
 
 const CATEGORY_LABELS: Record<string, string> = {
-  produce: "蔬果类",
-  fresh_protein: "肉蛋生鲜类",
-  beverage_dairy: "饮料乳品类",
+  fruit_vegetable: "果蔬类",
+  meat_egg_fresh: "肉蛋生鲜类",
+  drink: "饮料类",
   packaged_food: "包装食品类",
-  other: "其他",
-  fruit: "蔬果类",
-  vegetable: "蔬果类",
-  drink: "饮料乳品类",
+  produce: "果蔬类",
+  fresh_protein: "肉蛋生鲜类",
+  beverage_dairy: "饮料类",
+  fruit: "果蔬类",
+  vegetable: "果蔬类",
   protein: "肉蛋生鲜类",
+  other: "其他",
   unknown: "其他",
 }
 
@@ -74,6 +76,10 @@ export function isLowInventory(item: Pick<InventoryItem, "count" | "remain_level
 }
 
 export function formatUpdatedAt(updatedAt: string) {
+  if (!updatedAt) {
+    return "--"
+  }
+
   const normalized = updatedAt.replace(" ", "T")
   const date = new Date(normalized)
 

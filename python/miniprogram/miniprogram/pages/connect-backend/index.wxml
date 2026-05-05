@@ -1,8 +1,8 @@
 <view class="page connect-page">
   <view class="card gradient-card connect-hero">
-    <view class="page-kicker connect-kicker">Backend Link</view>
-    <view class="connect-title">连接后端</view>
-    <view class="connect-subtitle">当前阶段仅支持手动输入 IP + 端口，不做自动发现和局域网扫描。</view>
+    <view class="page-kicker connect-kicker">Local Service</view>
+    <view class="connect-title">连接 C++ 本地服务</view>
+    <view class="connect-subtitle">当前阶段手动输入 IP + 端口，不做自动发现和局域网扫描。</view>
 
     <view class="radial-stage">
       <view class="radial-circle radial-circle-1"></view>
@@ -44,7 +44,7 @@
       <input
         class="field-input"
         type="number"
-        placeholder="默认 5000"
+        placeholder="默认 8080"
         value="{{port}}"
         bindinput="handlePortInput"
       />

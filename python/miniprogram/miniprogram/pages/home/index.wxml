@@ -29,7 +29,7 @@
   </view>
 
   <view wx:if="{{errorText}}" class="card error-card">
-    <view class="error-title">当前无法连接后端</view>
+    <view class="error-title">当前无法连接本地服务</view>
     <view class="error-text">{{errorText}}</view>
   </view>
 

@@ -1,13 +1,13 @@
 <view class="page inventory-page">
   <view class="page-head">
-    <view class="back-button" bindtap="handleGoHome">‹</view>
+    <view class="back-button" bindtap="handleGoHome">&lt;</view>
     <view class="page-title">当前库存</view>
     <view class="page-spacer"></view>
   </view>
 
   <view wx:if="{{loading}}" class="card state-card">
     <view class="state-title">正在加载库存数据</view>
-    <view class="state-text">请稍候...</view>
+    <view class="state-text">请稍候。</view>
   </view>
 
   <view wx:elif="{{errorText}}" class="card state-card error-card">
@@ -23,10 +23,10 @@
   <view wx:else class="inventory-list">
     <view wx:for="{{items}}" wx:key="id" class="card inventory-card">
       <view class="inventory-left">
-        <view class="inventory-name">食材名称: {{item.displayName}}</view>
-        <view class="inventory-meta">类别: {{item.displayCategory}}</view>
-        <view class="inventory-meta">更新时间: {{item.updatedText}}</view>
-        <view class="inventory-meta inventory-status">剩余状态: {{item.remainPercentText}}</view>
+        <view class="inventory-name">食材名称：{{item.displayName}}</view>
+        <view class="inventory-meta">类别：{{item.displayCategory}}</view>
+        <view class="inventory-meta">更新时间：{{item.updatedText}}</view>
+        <view class="inventory-meta inventory-status">剩余状态：{{item.remainPercentText}}</view>
       </view>
 
       <view class="inventory-right">

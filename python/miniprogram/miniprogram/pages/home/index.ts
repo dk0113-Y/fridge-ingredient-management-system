@@ -33,7 +33,7 @@ function formatChineseDate(date: Date) {
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
 }
 
-Page<HomePageData>({
+Page<HomePageData, WechatMiniprogram.IAnyObject>({
   data: {
     loading: true,
     errorText: "",
@@ -78,13 +78,13 @@ Page<HomePageData>({
         connectionClass: "summary-status summary-status-online",
         syncText: formatTime(new Date()),
         inventoryCount: activeInventory.length,
-        pendingCount: inventoryResponse.pending_confirmations.length,
+        pendingCount: inventoryResponse.pending_review_count,
         recentEventCount: eventsResponse.events.length,
       })
     } catch (error) {
       this.setData({
         loading: false,
-        errorText: error instanceof Error ? error.message : "当前无法连接到后端服务，请检查地址配置。",
+        errorText: error instanceof Error ? error.message : "当前无法连接到本地服务，请检查地址配置。",
         connectionText: "离线",
         connectionClass: "summary-status",
         syncText: "--",
