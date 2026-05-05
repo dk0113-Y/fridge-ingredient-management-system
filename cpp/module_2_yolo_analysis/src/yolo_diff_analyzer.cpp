@@ -576,7 +576,7 @@ double compute_event_confidence(
     }
 
     const double magnitude = static_cast<double>(std::max(1, std::abs(count_delta)));
-    return std::clamp(0.62 + magnitude * 0.08, 0.62, 0.92);
+    return std::clamp(0.76 + magnitude * 0.06, 0.76, 0.94);
 }
 
 }  // namespace

@@ -27,6 +27,7 @@
   - local service facade
   - service config loading
   - health, inventory, events, pending, confirm, and manual-update JSON responses
+  - software closure evidence helper for applying final events to the in-memory inventory engine
 - `configs/`
   - `module_1_event_capture.cfg`
   - `module_2_yolo.cfg`
@@ -46,6 +47,7 @@ The repository has only partially reached the final 5-module target:
 - module 3 has an independent cloud recognizer skeleton
 - module 4 now has an inventory rule engine with pending-review and manual-update flow
 - module 5 now has a dedicated module directory with a local service facade that exposes health, inventory, events, pending, confirm, and manual-update JSON responses
+- module 2 session replay and the module12 live harness can now write in-memory software closure evidence under each session's `final/` directory: `inventory_response.json`, `events_response.json`, `pending_response.json`, and `software_closure_report.json`
 - an actual embedded/local HTTP server is still pending
 
 ## Build
@@ -63,3 +65,7 @@ If you want the native ONNX Runtime backend for module 2, add:
 ```
 
 `FRIDGE_USE_ONNXRUNTIME` defaults to `ON`, but it only enables the backend when CMake can find the ONNX Runtime headers and library. If OpenCV with `dnn` is unavailable, use `-D FRIDGE_USE_OPENCV=OFF` and debug with a local `.pgm` frame directory. Builds without ONNX Runtime and without OpenCV DNN can still use mock/debug paths, but they do not execute `models/best.onnx`.
+
+## Software Closure Debug
+
+`fridge_debug_software_closure` exercises the current in-memory Module 2 event -> Module 4 inventory -> Module 5 facade evidence path with deterministic mock/debug events. It covers a committed `put_in`, a matching `take_out`, `partial_take_out_candidate`, `uncertain`, and low-confidence pending-review cases. Its artifacts are debug evidence only; they are not real ONNX, camera, or board validation.

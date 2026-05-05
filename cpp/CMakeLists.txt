@@ -100,6 +100,7 @@ target_include_directories(fridge_inventory
 add_library(fridge_local_service
     module_5_local_service/src/local_service.cpp
     module_5_local_service/src/service_config.cpp
+    module_5_local_service/src/software_closure.cpp
 )
 
 target_include_directories(fridge_local_service
@@ -143,7 +144,7 @@ add_test(NAME fridge_debug_module_2 COMMAND fridge_debug_module_2)
 add_executable(fridge_module2_session_runner
     module_2_yolo_analysis/demo/session_runner.cpp
 )
-target_link_libraries(fridge_module2_session_runner PRIVATE fridge_vision)
+target_link_libraries(fridge_module2_session_runner PRIVATE fridge_vision fridge_local_service)
 target_include_directories(fridge_module2_session_runner PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/module_3_fine_grained/third_party
 )
@@ -159,6 +160,12 @@ add_executable(fridge_debug_module_5
 )
 target_link_libraries(fridge_debug_module_5 PRIVATE fridge_local_service)
 add_test(NAME fridge_debug_module_5 COMMAND fridge_debug_module_5)
+
+add_executable(fridge_debug_software_closure
+    tests/debug_software_closure.cpp
+)
+target_link_libraries(fridge_debug_software_closure PRIVATE fridge_vision fridge_local_service)
+add_test(NAME fridge_debug_software_closure COMMAND fridge_debug_software_closure)
 
 add_executable(fridge_module12_realtime_live
     tests/module12_realtime_live/main.cpp

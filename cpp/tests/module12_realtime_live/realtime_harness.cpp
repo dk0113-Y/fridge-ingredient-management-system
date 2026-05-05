@@ -48,8 +48,11 @@
 #include "debug_report.hpp"
 #include "event_detector.hpp"
 #include "frame_selector.hpp"
+#include "inventory_engine.hpp"
+#include "local_service.hpp"
 #include "runtime_config.hpp"
 #include "service_config.hpp"
+#include "software_closure.hpp"
 #include "stable_state_capture.hpp"
 #include "video_io.hpp"
 #include "yolo_runtime.hpp"
@@ -98,6 +101,10 @@ struct SessionPaths {
     std::filesystem::path stage2_crops_dir;
     std::filesystem::path final_event_path;
     std::filesystem::path final_report_path;
+    std::filesystem::path inventory_response_path;
+    std::filesystem::path events_response_path;
+    std::filesystem::path pending_response_path;
+    std::filesystem::path software_closure_report_path;
     std::filesystem::path live_capture_meta_path;
     std::filesystem::path run_manifest_path;
 };
@@ -135,6 +142,7 @@ struct LatestEventState {
     std::string report_path;
     std::string stage2_result_path;
     std::string final_event_path;
+    std::string software_closure_report_path;
     std::string crops_dir;
     std::string timestamp;
     std::size_t crop_artifact_count = 0;
@@ -154,6 +162,21 @@ std::filesystem::path resolve_repo_root() {
         return source_dir.parent_path();
     }
     return std::filesystem::current_path();
+}
+
+std::filesystem::path resolve_inventory_config_path(const std::filesystem::path& repo_root) {
+    const std::vector<std::filesystem::path> candidates = {
+        repo_root / "cpp" / "configs" / "module_4_inventory.cfg",
+        repo_root / "configs" / "module_4_inventory.cfg",
+        std::filesystem::current_path() / "cpp" / "configs" / "module_4_inventory.cfg",
+        std::filesystem::current_path() / "configs" / "module_4_inventory.cfg",
+    };
+    for (const auto& candidate : candidates) {
+        if (std::filesystem::exists(candidate)) {
+            return candidate;
+        }
+    }
+    return repo_root / "cpp" / "configs" / "module_4_inventory.cfg";
 }
 
 #ifdef _WIN32
@@ -1318,6 +1341,11 @@ std::string build_run_manifest_json(
            << "    \"stage1_event\": \"" << escape_json(path_to_utf8_string(paths.stage1_event_path)) << "\",\n"
            << "    \"stage2_result\": \"" << escape_json(path_to_utf8_string(paths.stage2_result_path)) << "\",\n"
            << "    \"final_event\": \"" << escape_json(path_to_utf8_string(paths.final_event_path)) << "\",\n"
+           << "    \"inventory_response\": \"" << escape_json(path_to_utf8_string(paths.inventory_response_path)) << "\",\n"
+           << "    \"events_response\": \"" << escape_json(path_to_utf8_string(paths.events_response_path)) << "\",\n"
+           << "    \"pending_response\": \"" << escape_json(path_to_utf8_string(paths.pending_response_path)) << "\",\n"
+           << "    \"software_closure_report\": \""
+           << escape_json(path_to_utf8_string(paths.software_closure_report_path)) << "\",\n"
            << "    \"test_report\": \"" << escape_json(path_to_utf8_string(paths.final_report_path)) << "\"\n"
            << "  }\n"
            << "}\n";
@@ -1369,6 +1397,10 @@ public:
         layout.stage2_crops_dir = layout.stage2_dir / "crops";
         layout.final_event_path = layout.final_dir / "event.json";
         layout.final_report_path = layout.final_dir / "test_report.json";
+        layout.inventory_response_path = layout.final_dir / "inventory_response.json";
+        layout.events_response_path = layout.final_dir / "events_response.json";
+        layout.pending_response_path = layout.final_dir / "pending_response.json";
+        layout.software_closure_report_path = layout.final_dir / "software_closure_report.json";
         layout.live_capture_meta_path = layout.meta_dir / "live_capture_meta.json";
         layout.run_manifest_path = layout.meta_dir / "run_manifest.json";
 
@@ -1900,6 +1932,8 @@ private:
     VisionPipelineConfig pipeline_config_;
     YoloRuntimeConfig yolo_runtime_config_;
     YoloAnalysisConfig yolo_analysis_config_;
+    InventoryRuntimeConfig inventory_config_;
+    InventoryEngine inventory_engine_;
     LocalServiceConfig service_config_;
     mutable std::mutex state_mutex_;
     std::string last_session_id_;
@@ -1955,6 +1989,10 @@ bool Module12RealtimeHarness::Impl::load_configs(std::string& error_message) {
     if (!load_yolo_analysis_config(options_.module2_config_path, yolo_analysis_config_, error_message)) {
         return false;
     }
+    if (!load_inventory_runtime_config(resolve_inventory_config_path(repo_root_), inventory_config_, error_message)) {
+        return false;
+    }
+    inventory_engine_ = InventoryEngine(inventory_config_);
     if (!load_local_service_config(options_.service_config_path, service_config_, error_message)) {
         return false;
     }
@@ -2060,7 +2098,7 @@ std::string Module12RealtimeHarness::Impl::build_index_html() const {
            << "  let quick = 'waiting...';\n"
            << "  try {\n"
            << "    const parsed = JSON.parse(event);\n"
-           << "    quick = JSON.stringify({event_type: parsed.event_type, actual_stage2_event_type: parsed.actual_stage2_event_type, stage2_success: parsed.stage2_success, crop_artifact_count: parsed.crop_artifact_count, stage2_result_path: parsed.stage2_result_path, final_event_path: parsed.final_event_path}, null, 2);\n"
+           << "    quick = JSON.stringify({event_type: parsed.event_type, actual_stage2_event_type: parsed.actual_stage2_event_type, stage2_success: parsed.stage2_success, crop_artifact_count: parsed.crop_artifact_count, stage2_result_path: parsed.stage2_result_path, final_event_path: parsed.final_event_path, software_closure_report_path: parsed.software_closure_report_path}, null, 2);\n"
            << "  } catch (_) {}\n"
            << "  document.getElementById('quick').textContent = quick;\n"
            << "}\n"
@@ -2570,6 +2608,40 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
         return;
     }
 
+    const LocalServiceFacade facade(service_config_);
+    SoftwareClosureResult closure_result;
+    const SoftwareClosureEvidencePaths closure_paths{
+        paths.final_event_path,
+        paths.inventory_response_path,
+        paths.events_response_path,
+        paths.pending_response_path,
+        paths.software_closure_report_path
+    };
+    const SoftwareClosureContext closure_context{
+        to_string(options_.module2_mode),
+        pipeline_mode_string(options_),
+        stage2_failure_reason,
+        options_.module2_mode == Module2Mode::Mock
+            ? "mock/debug evidence; not real ONNX, camera, or board validation"
+            : "real_onnx_runtime live evidence; board validation is not implied"
+    };
+    const std::string closure_review_reason = options_.capture_only
+        ? "capture_only: module2 skipped"
+        : (stage2_execution.success ? stage2_execution.result.review_reason : stage2_execution.failure_reason);
+    if (!write_software_closure_evidence(
+            inventory_engine_,
+            facade,
+            final_event,
+            closure_paths,
+            closure_context,
+            closure_review_reason,
+            closure_result,
+            error_message
+        )) {
+        std::cerr << error_message << "\n";
+        return;
+    }
+
     const std::string report_json = options_.capture_only
         ? build_capture_only_report_json(
               session_id,
@@ -2660,6 +2732,8 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
         latest_event_state_.report_path = path_to_utf8_string(paths.final_report_path);
         latest_event_state_.stage2_result_path = path_to_utf8_string(paths.stage2_result_path);
         latest_event_state_.final_event_path = path_to_utf8_string(paths.final_event_path);
+        latest_event_state_.software_closure_report_path =
+            path_to_utf8_string(paths.software_closure_report_path);
         latest_event_state_.crops_dir = path_to_utf8_string(paths.stage2_crops_dir);
         latest_event_state_.timestamp = final_event.timestamp;
         latest_event_state_.crop_artifact_count = stage2_execution.crop_artifacts.size();
@@ -2684,6 +2758,8 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
                     << "  \"report_path\": \"" << escape_json(latest_event_state_.report_path) << "\",\n"
                     << "  \"stage2_result_path\": \"" << escape_json(latest_event_state_.stage2_result_path) << "\",\n"
                     << "  \"final_event_path\": \"" << escape_json(latest_event_state_.final_event_path) << "\",\n"
+                    << "  \"software_closure_report_path\": \""
+                    << escape_json(latest_event_state_.software_closure_report_path) << "\",\n"
                     << "  \"crops_dir\": \"" << escape_json(latest_event_state_.crops_dir) << "\",\n"
                     << "  \"crop_artifact_count\": " << latest_event_state_.crop_artifact_count << ",\n"
                     << "  \"timestamp\": \"" << escape_json(latest_event_state_.timestamp) << "\"\n"

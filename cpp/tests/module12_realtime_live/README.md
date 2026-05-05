@@ -159,6 +159,10 @@ Main outputs:
 - `stage2/crops/`
 - `final/event.json`
 - `final/test_report.json`
+- `final/inventory_response.json`
+- `final/events_response.json`
+- `final/pending_response.json`
+- `final/software_closure_report.json`
 - `meta/live_capture_meta.json`
 - `meta/run_manifest.json`
 

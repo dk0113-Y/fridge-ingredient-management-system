@@ -26,6 +26,10 @@
 #include <nlohmann/json.hpp>
 
 #include "event_detector.hpp"
+#include "inventory_engine.hpp"
+#include "local_service.hpp"
+#include "software_closure.hpp"
+#include "service_config.hpp"
 #include "video_io.hpp"
 #include "yolo_diff_analyzer.hpp"
 #include "yolo_runtime.hpp"
@@ -95,6 +99,10 @@ struct SessionOutputPaths {
     fs::path crops_dir;
     fs::path final_dir;
     fs::path final_event_path;
+    fs::path inventory_response_path;
+    fs::path events_response_path;
+    fs::path pending_response_path;
+    fs::path software_closure_report_path;
 };
 
 #ifdef _WIN32
@@ -360,6 +368,36 @@ fs::path resolve_config_path(const AppOptions& options, const fs::path& repo_roo
         }
     }
     return repo_root / "cpp" / "configs" / "module_2_yolo.cfg";
+}
+
+fs::path resolve_inventory_config_path(const fs::path& repo_root) {
+    const std::vector<fs::path> candidates = {
+        repo_root / "cpp" / "configs" / "module_4_inventory.cfg",
+        repo_root / "configs" / "module_4_inventory.cfg",
+        fs::current_path() / "cpp" / "configs" / "module_4_inventory.cfg",
+        fs::current_path() / "configs" / "module_4_inventory.cfg",
+    };
+    for (const auto& candidate : candidates) {
+        if (fs::exists(candidate)) {
+            return candidate;
+        }
+    }
+    return repo_root / "cpp" / "configs" / "module_4_inventory.cfg";
+}
+
+fs::path resolve_service_config_path(const fs::path& repo_root) {
+    const std::vector<fs::path> candidates = {
+        repo_root / "cpp" / "configs" / "module_5_local_service.cfg",
+        repo_root / "configs" / "module_5_local_service.cfg",
+        fs::current_path() / "cpp" / "configs" / "module_5_local_service.cfg",
+        fs::current_path() / "configs" / "module_5_local_service.cfg",
+    };
+    for (const auto& candidate : candidates) {
+        if (fs::exists(candidate)) {
+            return candidate;
+        }
+    }
+    return repo_root / "cpp" / "configs" / "module_5_local_service.cfg";
 }
 
 fs::path find_latest_session_dir(const fs::path& root, std::string& error_message) {
@@ -1054,6 +1092,10 @@ SessionOutputPaths make_output_paths(const fs::path& session_dir) {
     paths.crops_dir = paths.stage2_dir / "crops";
     paths.final_dir = session_dir / "final";
     paths.final_event_path = paths.final_dir / "event.json";
+    paths.inventory_response_path = paths.final_dir / "inventory_response.json";
+    paths.events_response_path = paths.final_dir / "events_response.json";
+    paths.pending_response_path = paths.final_dir / "pending_response.json";
+    paths.software_closure_report_path = paths.final_dir / "software_closure_report.json";
     return paths;
 }
 
@@ -1068,6 +1110,10 @@ bool outputs_are_current(
         output_paths.detections_after_path,
         output_paths.result_path,
         output_paths.final_event_path,
+        output_paths.inventory_response_path,
+        output_paths.events_response_path,
+        output_paths.pending_response_path,
+        output_paths.software_closure_report_path,
     };
     for (const auto& output_path : required_outputs) {
         if (!fs::exists(output_path)) {
@@ -1132,6 +1178,8 @@ void print_session_summary(
     std::cout << "stage1_event: " << path_to_utf8_string(stage1_event_path) << "\n";
     std::cout << "stage2_result: " << path_to_utf8_string(output_paths.result_path) << "\n";
     std::cout << "final_event: " << path_to_utf8_string(output_paths.final_event_path) << "\n";
+    std::cout << "software_closure_report: "
+              << path_to_utf8_string(output_paths.software_closure_report_path) << "\n";
     std::cout << "module2_mode: " << to_string(mode) << "\n";
     std::cout << "runtime_model: " << path_to_utf8_string(runtime_info.resolved_model_path) << "\n";
     std::cout << "runtime_ready: " << (runtime_info.can_run_in_current_cpp_runtime ? "yes" : "no") << "\n";
@@ -1277,6 +1325,58 @@ bool process_session(
         final_event.timestamp = snapshot.event.timestamp;
     }
     if (!fridge::write_event_json(final_event, output_paths.final_event_path, error_message)) {
+        return false;
+    }
+
+    fridge::InventoryRuntimeConfig inventory_config;
+    if (!fridge::load_inventory_runtime_config(
+            resolve_inventory_config_path(repo_root),
+            inventory_config,
+            error_message
+        )) {
+        return false;
+    }
+
+    fridge::LocalServiceConfig service_config;
+    if (!fridge::load_local_service_config(
+            resolve_service_config_path(repo_root),
+            service_config,
+            error_message
+        )) {
+        return false;
+    }
+
+    fridge::InventoryEngine inventory_engine(inventory_config);
+    const fridge::LocalServiceFacade facade(service_config);
+    fridge::SoftwareClosureResult closure_result;
+    const fridge::SoftwareClosureEvidencePaths closure_paths{
+        output_paths.final_event_path,
+        output_paths.inventory_response_path,
+        output_paths.events_response_path,
+        output_paths.pending_response_path,
+        output_paths.software_closure_report_path
+    };
+    const fridge::SoftwareClosureContext closure_context{
+        to_string(options.module2_mode),
+        "module2_session_runner",
+        execution.success ? "" : execution.failure_reason,
+        options.module2_mode == Module2Mode::Mock
+            ? "mock/debug evidence; not real ONNX, camera, or board validation"
+            : "real_onnx_runtime session replay evidence; camera and board validation are not implied"
+    };
+    const std::string closure_review_reason = execution.success
+        ? execution.result.review_reason
+        : execution.failure_reason;
+    if (!fridge::write_software_closure_evidence(
+            inventory_engine,
+            facade,
+            final_event,
+            closure_paths,
+            closure_context,
+            closure_review_reason,
+            closure_result,
+            error_message
+        )) {
         return false;
     }
 

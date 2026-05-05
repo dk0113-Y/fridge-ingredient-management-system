@@ -11,7 +11,7 @@ Current status:
 - it also contains debug artifact/report generation
 - runtime config and diff-analysis config are now merged into one file: `cpp/configs/module_2_yolo.cfg`
 - the repository currently contains both `models/best.pt` and `models/best.onnx`, and module-2 debug checks the configured ONNX asset directly
-- continuous session replay can now poll module-1 output roots and backfill both `stage2/*.json` and `final/event.json`
+- continuous session replay can now poll module-1 output roots and backfill `stage2/*.json`, `final/event.json`, and in-memory Module 4/5 software closure evidence
 
 ## Offline Session Replay
 
@@ -65,11 +65,16 @@ Outputs are written into the session's `stage2/` directory:
 - `stage2/module2_result.json` with both `crop_requests` and realized `crop_artifacts`
 - `stage2/crops/`
 - `final/event.json`
+- `final/inventory_response.json`
+- `final/events_response.json`
+- `final/pending_response.json`
+- `final/software_closure_report.json`
 
 Notes:
 
 - `mock` mode reuses the stage-1 event type and change box to synthesize ONNX-like rows, so the existing C++ decode and diff-analysis path can be exercised on captured sessions today
 - `real_onnx_runtime` mode runs the configured `best.onnx` model through ONNX Runtime when available; OpenCV DNN remains a fallback backend
+- software closure evidence applies the final in-memory event to Module 4 `InventoryEngine` and writes Module 5 facade-style JSON responses; this is not SQLite persistence or a real HTTP server
 - builds without ONNX Runtime and without OpenCV DNN can still use mock/debug/`.pgm` paths, but those paths do not execute the real ONNX graph
 - the watcher only reprocesses sessions whose stage-1 inputs are newer than the existing stage-2/final JSON outputs
 - reading `.jpg/.png` stage1 artifacts still requires an OpenCV-enabled build; `.pgm` artifacts still work without OpenCV in `mock` mode
