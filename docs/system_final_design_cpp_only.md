@@ -10,7 +10,7 @@
 - 模块 2 已有独立 YOLO 分析链路，优先使用 ONNX Runtime 执行 `models/best.onnx`，OpenCV DNN 作为 fallback；没有这两个后端时仍可走 mock/debug/`.pgm` 路径，但不等价于真实 ONNX 推理。
 - 模块 3 当前是独立 fine-grained recognizer client skeleton，支持 mock mode 和 provider config，尚未完整接入主事件 / 库存链路。
 - 模块 4 当前以 in-memory `InventoryEngine` / rule engine baseline 为主，覆盖库存 mutation、pending review 和 manual correction；SQLite 是后续 adapter / persistence 目标，尚未完全落地。
-- 模块 5 当前是 local service facade / JSON response baseline，覆盖 health、inventory、events、pending、confirm、manual-update 等响应；真实 embedded/local HTTP server 尚未完成。
+- 模块 5 当前已有 local service facade / JSON response baseline，并新增轻量级 C++ local HTTP server baseline，覆盖 health、inventory、events、pending、confirm、manual-update 等路由；小程序真实联调、板端部署和长时间稳定性仍未完成。
 
 最终方案约束如下：
 
@@ -52,7 +52,7 @@
 6. 若需要细分类，则调用外部大模型接口，获取细粒度名称和相关补充信息；当前模块 3 仍是独立 client skeleton / mock + provider config。
 7. 主程序内部直接生成事件对象并更新库存状态；SQLite 是目标数据库方案，当前模块 4 仍以 in-memory 规则引擎为主。
 8. 同时输出 `event.json` 作为调试日志与可追溯记录。
-9. 本地 HTTP 服务向小程序或本地页面提供库存、事件、确认和修正接口；当前模块 5 尚未接入真实 HTTP server，已有的是 local service facade / JSON response baseline。
+9. 本地 HTTP 服务向小程序或本地页面提供库存、事件、确认和修正接口；当前模块 5 已有 local service facade 和 lightweight local HTTP server baseline，但小程序真实联调和板端部署仍待验证。
 
 ---
 
@@ -288,7 +288,7 @@
 
 ### 当前实现边界
 
-当前模块 5 是 local service facade / JSON response baseline，已能生成 health、inventory、events、pending、confirm、manual-update 等 JSON 响应；真实 embedded/local HTTP server、端口监听、路由绑定和小程序联调仍是后续任务。
+当前模块 5 是 local service facade / JSON response baseline，并已新增 lightweight C++ local HTTP server baseline，能通过端口监听和路由绑定暴露 health、inventory、events、pending、confirm、manual-update。小程序联调、板端部署和长时间稳定性仍是后续任务。
 
 ### 小程序边界
 
@@ -366,7 +366,7 @@
 - `event.json` 仅作为调试日志和可追溯记录
 - 小程序继续通过稳定接口访问本地服务
 
-当前实现中，库存持久化仍以 in-memory rule engine baseline 为主，HTTP 层仍是 local service facade，尚未等同于完整上线的本地 HTTP 服务。
+当前实现中，库存持久化默认仍以 in-memory rule engine baseline 为主；HTTP 层已有 lightweight local server baseline，可在 sqlite3 已编译且显式启用时 load/save `InventoryEngine` snapshot，但尚未等同于完整上线的本地 HTTP 服务。
 
 ---
 
@@ -376,7 +376,7 @@
 2. 当前目标识别链路以 YOLO 为核心，模块 2 已有 ONNX Runtime / OpenCV DNN fallback 和 mock/debug 路径。
 3. 部分取出仅对果蔬类启用，饮料类不做部分取出判断。
 4. 小程序部分当前不做调整。
-5. 先完成基础闭环，再补大模型细分类、SQLite persistence、真实 HTTP server 与包装信息推断。
+5. 先完成基础闭环，再补大模型细分类、SQLite persistence 长期验证、小程序/板端 HTTP 联调与包装信息推断。
 
 ---
 
@@ -406,4 +406,4 @@
 
 ## 9. 答辩统一表述
 
-“本系统目标方案采用全 C/C++ 一体化架构，在端侧完成真实事件检测、关键帧提取、YOLO 粗分类、库存更新和本地通信服务；对于需要进一步确认的目标，再调用大模型完成细粒度识别与包装食品保质期推断。当前仓库已完成部分模块 baseline：模块 1/2/4/5 已具备可调试链路，模块 3 仍是独立 client skeleton；SQLite persistence、真实 HTTP server 和模块 3 主链路集成仍需后续完成。为保证工程可落地性，部分取出功能限定在果蔬类场景，饮料类暂不进行部分取出自动识别；小程序前端维持不变，仅通过稳定接口与本地服务交互。”
+“本系统目标方案采用全 C/C++ 一体化架构，在端侧完成真实事件检测、关键帧提取、YOLO 粗分类、库存更新和本地通信服务；对于需要进一步确认的目标，再调用大模型完成细粒度识别与包装食品保质期推断。当前仓库已完成部分模块 baseline：模块 1/2/4/5 已具备可调试链路，模块 5 已有本地 HTTP server baseline，模块 3 仍是独立 client skeleton；SQLite persistence 长期验证、小程序真实 HTTP 联调、板端部署和模块 3 主链路集成仍需后续完成。为保证工程可落地性，部分取出功能限定在果蔬类场景，饮料类暂不进行部分取出自动识别；小程序前端维持不变，仅通过稳定接口与本地服务交互。”

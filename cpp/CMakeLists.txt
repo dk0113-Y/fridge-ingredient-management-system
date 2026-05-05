@@ -109,6 +109,7 @@ target_include_directories(fridge_inventory
 
 add_library(fridge_local_service
     module_5_local_service/src/local_service.cpp
+    module_5_local_service/src/local_http_server.cpp
     module_5_local_service/src/service_config.cpp
     module_5_local_service/src/software_closure.cpp
 )
@@ -150,12 +151,26 @@ target_include_directories(fridge_local_service
         ${CMAKE_CURRENT_SOURCE_DIR}/module_5_local_service/include
         ${CMAKE_CURRENT_SOURCE_DIR}/module_1_event_capture/include
         ${CMAKE_CURRENT_SOURCE_DIR}/module_4_inventory/include
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/module_3_fine_grained/third_party
 )
 
 target_link_libraries(fridge_local_service
     PUBLIC
         fridge_inventory
 )
+if(WIN32)
+    target_link_libraries(fridge_local_service PUBLIC ws2_32)
+endif()
+
+add_executable(fridge_local_service_server
+    module_5_local_service/src/local_service_server_main.cpp
+)
+target_link_libraries(fridge_local_service_server PRIVATE fridge_local_service)
+if(SQLite3_FOUND)
+    target_link_libraries(fridge_local_service_server PRIVATE fridge_inventory_sqlite)
+    target_compile_definitions(fridge_local_service_server PRIVATE FRIDGE_HAS_SQLITE=1)
+endif()
 
 enable_testing()
 
@@ -221,6 +236,16 @@ add_executable(fridge_debug_module_5
 )
 target_link_libraries(fridge_debug_module_5 PRIVATE fridge_local_service)
 add_test(NAME fridge_debug_module_5 COMMAND fridge_debug_module_5)
+
+add_executable(fridge_debug_local_http_server
+    tests/debug_local_http_server.cpp
+)
+target_link_libraries(fridge_debug_local_http_server PRIVATE fridge_local_service)
+if(SQLite3_FOUND)
+    target_link_libraries(fridge_debug_local_http_server PRIVATE fridge_inventory_sqlite)
+    target_compile_definitions(fridge_debug_local_http_server PRIVATE FRIDGE_HAS_SQLITE=1)
+endif()
+add_test(NAME fridge_debug_local_http_server COMMAND fridge_debug_local_http_server)
 
 add_executable(fridge_debug_software_closure
     tests/debug_software_closure.cpp

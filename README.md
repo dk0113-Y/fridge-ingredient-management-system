@@ -30,7 +30,7 @@ already implemented.
 - `cpp/module_2_yolo_analysis/`: YOLO runtime using ONNX Runtime first and OpenCV DNN as fallback, preprocessing, ONNX output decoding, box matching, and YOLO diff-analysis baseline
 - `cpp/module_3_fine_grained/`: C++ fine-grained recognition client skeleton with mock mode and provider-neutral config
 - `cpp/module_4_inventory/`: inventory rule engine, pending review flow, and manual update baseline
-- `cpp/module_5_local_service/`: local service facade for health, inventory, events, pending review, confirm, and manual update
+- `cpp/module_5_local_service/`: local service facade and lightweight local HTTP server baseline for health, inventory, events, pending review, confirm, and manual update
 - `python/miniprogram/`: retained mini program frontend
 - `python/model_tools/`: offline support scripts for model export and related tooling
 
@@ -48,4 +48,4 @@ already implemented.
 - `models/best.pt` is retained as the original training/export weight file
 - builds without ONNX Runtime / OpenCV DNN still fall back to mock / `.pgm` debug paths and do not execute the ONNX graph
 - module 4 still uses `InventoryEngine` as the rule engine, but software closure/session runs can optionally load/save its state through SQLite when sqlite3 is available
-- module 5 is still a local service facade and has not been connected to a real HTTP server yet
+- module 5 now has a lightweight C++ local HTTP server baseline over the facade; mini-program integration, board deployment, and long-running HTTP/SQLite validation are still pending
