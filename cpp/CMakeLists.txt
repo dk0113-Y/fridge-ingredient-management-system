@@ -55,7 +55,7 @@ endif()
 if(FRIDGE_USE_SQLITE)
     find_package(SQLite3 QUIET)
     if(SQLite3_FOUND)
-        message(STATUS "SQLite3 found, module-4 SQLite persistence debug is enabled.")
+        message(STATUS "SQLite3 found, module-4 SQLite persistence and software closure SQLite debug are enabled.")
     else()
         message(STATUS "SQLite3 development files not found, module-4 SQLite persistence adapter will not be built.")
     endif()
@@ -127,6 +127,22 @@ if(SQLite3_FOUND)
             fridge_inventory
             SQLite::SQLite3
     )
+
+    add_library(fridge_software_closure_sqlite
+        module_5_local_service/src/software_closure_sqlite.cpp
+    )
+    target_include_directories(fridge_software_closure_sqlite
+        PUBLIC
+            ${CMAKE_CURRENT_SOURCE_DIR}/module_5_local_service/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/module_1_event_capture/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/module_4_inventory/include
+    )
+    target_compile_definitions(fridge_software_closure_sqlite PUBLIC FRIDGE_HAS_SQLITE=1)
+    target_link_libraries(fridge_software_closure_sqlite
+        PUBLIC
+            fridge_local_service
+            fridge_inventory_sqlite
+    )
 endif()
 
 target_include_directories(fridge_local_service
@@ -171,6 +187,10 @@ add_executable(fridge_module2_session_runner
     module_2_yolo_analysis/demo/session_runner.cpp
 )
 target_link_libraries(fridge_module2_session_runner PRIVATE fridge_vision fridge_local_service)
+if(SQLite3_FOUND)
+    target_link_libraries(fridge_module2_session_runner PRIVATE fridge_software_closure_sqlite)
+    target_compile_definitions(fridge_module2_session_runner PRIVATE FRIDGE_HAS_SQLITE=1)
+endif()
 target_include_directories(fridge_module2_session_runner PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/module_3_fine_grained/third_party
 )
@@ -187,6 +207,13 @@ if(SQLite3_FOUND)
     )
     target_link_libraries(fridge_debug_sqlite_persistence PRIVATE fridge_inventory_sqlite)
     add_test(NAME fridge_debug_sqlite_persistence COMMAND fridge_debug_sqlite_persistence)
+
+    add_executable(fridge_debug_software_closure_sqlite
+        tests/debug_software_closure_sqlite.cpp
+    )
+    target_link_libraries(fridge_debug_software_closure_sqlite PRIVATE fridge_software_closure_sqlite)
+    target_compile_definitions(fridge_debug_software_closure_sqlite PRIVATE FRIDGE_HAS_SQLITE=1)
+    add_test(NAME fridge_debug_software_closure_sqlite COMMAND fridge_debug_software_closure_sqlite)
 endif()
 
 add_executable(fridge_debug_module_5
@@ -206,6 +233,10 @@ add_executable(fridge_module12_realtime_live
     tests/module12_realtime_live/realtime_harness.cpp
 )
 target_link_libraries(fridge_module12_realtime_live PRIVATE fridge_vision fridge_local_service)
+if(SQLite3_FOUND)
+    target_link_libraries(fridge_module12_realtime_live PRIVATE fridge_software_closure_sqlite)
+    target_compile_definitions(fridge_module12_realtime_live PRIVATE FRIDGE_HAS_SQLITE=1)
+endif()
 if(WIN32)
     target_link_libraries(fridge_module12_realtime_live PRIVATE ws2_32)
 endif()

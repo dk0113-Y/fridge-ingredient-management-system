@@ -84,4 +84,6 @@ $RECYCLE.BIN/
 # Stage-1 generated artifacts
 data/sessions/*
 !data/sessions/.gitkeep
+data/runtime/*.db
+data/runtime/*.sqlite
 data/runtime/*.sqlite3

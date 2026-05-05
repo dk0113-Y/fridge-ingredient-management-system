@@ -179,6 +179,19 @@ std::filesystem::path resolve_inventory_config_path(const std::filesystem::path&
     return repo_root / "cpp" / "configs" / "module_4_inventory.cfg";
 }
 
+std::filesystem::path resolve_sqlite_database_path(
+    const LiveHarnessOptions& options,
+    const std::filesystem::path& repo_root
+) {
+    std::filesystem::path db_path = options.sqlite_db_path.empty()
+        ? repo_root / "data" / "runtime" / "fridge_inventory.db"
+        : options.sqlite_db_path;
+    if (db_path.is_relative()) {
+        db_path = repo_root / db_path;
+    }
+    return db_path;
+}
+
 #ifdef _WIN32
 std::string wide_to_utf8(const std::wstring& value) {
     if (value.empty()) {
@@ -1980,6 +1993,13 @@ std::optional<FramePacket> Module12RealtimeHarness::Impl::find_frame_packet(int 
 }
 
 bool Module12RealtimeHarness::Impl::load_configs(std::string& error_message) {
+#ifndef FRIDGE_HAS_SQLITE
+    if (options_.enable_sqlite_persistence) {
+        error_message = "SQLite persistence requested but this binary was built without sqlite3 support";
+        return false;
+    }
+#endif
+
     if (!load_pipeline_config(options_.module1_config_path, pipeline_config_, error_message)) {
         return false;
     }
@@ -2623,21 +2643,52 @@ void Module12RealtimeHarness::Impl::process_event_window(const StableCaptureEven
         stage2_failure_reason,
         options_.module2_mode == Module2Mode::Mock
             ? "mock/debug evidence; not real ONNX, camera, or board validation"
-            : "real_onnx_runtime live evidence; board validation is not implied"
+            : "real_onnx_runtime live evidence; board validation is not implied",
+#ifdef FRIDGE_HAS_SQLITE
+        true
+#else
+        false
+#endif
     };
     const std::string closure_review_reason = options_.capture_only
         ? "capture_only: module2 skipped"
         : (stage2_execution.success ? stage2_execution.result.review_reason : stage2_execution.failure_reason);
-    if (!write_software_closure_evidence(
-            inventory_engine_,
-            facade,
-            final_event,
-            closure_paths,
-            closure_context,
-            closure_review_reason,
-            closure_result,
-            error_message
-        )) {
+    if (options_.enable_sqlite_persistence) {
+#ifdef FRIDGE_HAS_SQLITE
+        const SoftwareClosurePersistenceOptions persistence_options{
+            true,
+            resolve_sqlite_database_path(options_, repo_root_),
+            false
+        };
+        if (!write_software_closure_evidence_with_sqlite_persistence(
+                inventory_engine_,
+                facade,
+                final_event,
+                closure_paths,
+                closure_context,
+                closure_review_reason,
+                persistence_options,
+                closure_result,
+                error_message
+            )) {
+            std::cerr << error_message << "\n";
+            return;
+        }
+#else
+        error_message = "SQLite persistence requested but this binary was built without sqlite3 support";
+        std::cerr << error_message << "\n";
+        return;
+#endif
+    } else if (!write_software_closure_evidence(
+                   inventory_engine_,
+                   facade,
+                   final_event,
+                   closure_paths,
+                   closure_context,
+                   closure_review_reason,
+                   closure_result,
+                   error_message
+               )) {
         std::cerr << error_message << "\n";
         return;
     }

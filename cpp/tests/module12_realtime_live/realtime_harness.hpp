@@ -26,6 +26,7 @@ struct LiveHarnessOptions {
     std::filesystem::path service_config_path;
     std::filesystem::path output_root;
     std::filesystem::path latest_run_manifest_path;
+    std::filesystem::path sqlite_db_path;
     std::string case_id = "TC02_live_put_in";
     std::string mock_coarse_class = "packaged_food";
     Module2Mode module2_mode = Module2Mode::Mock;
@@ -41,6 +42,7 @@ struct LiveHarnessOptions {
     int cooldown_frame_count = 8;
     int stop_after_events = 1;
     int duration_seconds = 0;
+    bool enable_sqlite_persistence = false;
 };
 
 class Module12RealtimeHarness {

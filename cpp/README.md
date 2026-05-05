@@ -48,7 +48,7 @@ The repository has only partially reached the final 5-module target:
 - module 3 has an independent cloud recognizer skeleton
 - module 4 now has an inventory rule engine with pending-review and manual-update flow, plus an optional SQLite persistence baseline when sqlite3 is available
 - module 5 now has a dedicated module directory with a local service facade that exposes health, inventory, events, pending, confirm, and manual-update JSON responses
-- module 2 session replay and the module12 live harness can now write in-memory software closure evidence under each session's `final/` directory: `inventory_response.json`, `events_response.json`, `pending_response.json`, and `software_closure_report.json`
+- module 2 session replay and the module12 live harness can now write software closure evidence under each session's `final/` directory: `inventory_response.json`, `events_response.json`, `pending_response.json`, and `software_closure_report.json`; this path remains in-memory by default and can optionally load/save SQLite snapshots when sqlite3 is available and explicitly requested
 - an actual embedded/local HTTP server is still pending
 
 ## Build
@@ -73,10 +73,22 @@ SQLite support for module 4 is controlled by:
 -D FRIDGE_USE_SQLITE=ON
 ```
 
-`FRIDGE_USE_SQLITE` defaults to `ON`, but the SQLite adapter and `fridge_debug_sqlite_persistence` executable are built only when CMake finds sqlite3 development files. If sqlite3 is unavailable, the in-memory inventory flow, software closure debug path, and normal tests still build and run.
+`FRIDGE_USE_SQLITE` defaults to `ON`, but the SQLite adapter, SQLite closure wrapper, and SQLite debug executables are built only when CMake finds sqlite3 development files. If sqlite3 is unavailable, the in-memory inventory flow, software closure debug path, session runner, live harness, and normal tests still build and run.
+
+When SQLite support is compiled, module-2 session replay can persist software closure state:
+
+```powershell
+fridge_module2_session_runner.exe `
+  --session-dir data/test_sessions/module12_realtime_live/<session_id> `
+  --module2-mode mock `
+  --enable-sqlite-persistence `
+  --sqlite-db data/runtime/fridge_inventory.db
+```
+
+`--sqlite-db` implies `--enable-sqlite-persistence`. If no database path is provided, the runtime default is `data/runtime/fridge_inventory.db`. `--reset-sqlite-db` is available for deterministic debug/session runs. `fridge_module12_realtime_live` also accepts `--enable-sqlite-persistence` and `--sqlite-db <path>`; it does not reset the database automatically.
 
 ## Software Closure Debug
 
 `fridge_debug_software_closure` exercises the current in-memory Module 2 event -> Module 4 inventory -> Module 5 facade evidence path with deterministic mock/debug events. It covers a committed `put_in`, a matching `take_out`, `partial_take_out_candidate`, `uncertain`, and low-confidence pending-review cases. Its artifacts are debug evidence only; they are not real ONNX, camera, or board validation.
 
-When SQLite support is available, `fridge_debug_sqlite_persistence` writes `sqlite_persistence_debug/fridge_inventory.db` under the build output directory and verifies that inventory, events, pending reviews, and inventory change log records survive reload. This is SQLite debug evidence, not real camera, real ONNX, real HTTP, or board validation.
+When SQLite support is available, `fridge_debug_sqlite_persistence` writes `sqlite_persistence_debug/fridge_inventory.db` under the build output directory and verifies that inventory, events, pending reviews, and inventory change log records survive reload. `fridge_debug_software_closure_sqlite` verifies the runtime closure path: load previous `InventoryEngine` state from SQLite, apply a new event, save the updated snapshot, reload it, and check SQLite status fields in `software_closure_report.json`. These are SQLite debug evidence, not real camera, real ONNX, real HTTP, or board validation.

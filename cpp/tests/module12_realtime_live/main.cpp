@@ -85,6 +85,8 @@ void print_usage() {
         << "  --service-config <path>\n"
         << "  --output-root <path>\n"
         << "  --latest-run-manifest <path>\n"
+        << "  --enable-sqlite-persistence     load/save InventoryEngine state through SQLite\n"
+        << "  --sqlite-db <path>              SQLite database path, default is data/runtime/fridge_inventory.db\n"
         << "  --help\n";
 }
 
@@ -222,6 +224,15 @@ int main(int argc, char** argv) {
             }
             if (token == "--latest-run-manifest") {
                 options.latest_run_manifest_path = require_value(token);
+                continue;
+            }
+            if (token == "--enable-sqlite-persistence") {
+                options.enable_sqlite_persistence = true;
+                continue;
+            }
+            if (token == "--sqlite-db") {
+                options.sqlite_db_path = require_value(token);
+                options.enable_sqlite_persistence = true;
                 continue;
             }
 

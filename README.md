@@ -47,5 +47,5 @@ already implemented.
 - `models/best.onnx` is now wired into module 2 through ONNX Runtime when available, with OpenCV DNN kept as a secondary fallback
 - `models/best.pt` is retained as the original training/export weight file
 - builds without ONNX Runtime / OpenCV DNN still fall back to mock / `.pgm` debug paths and do not execute the ONNX graph
-- module 4 is still an in-memory inventory baseline and has not been switched to SQLite yet
+- module 4 still uses `InventoryEngine` as the rule engine, but software closure/session runs can optionally load/save its state through SQLite when sqlite3 is available
 - module 5 is still a local service facade and has not been connected to a real HTTP server yet

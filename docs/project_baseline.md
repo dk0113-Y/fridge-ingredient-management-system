@@ -63,7 +63,7 @@
 | 部分取出候选 | 已有 baseline | 仅限果蔬类 `partial_take_out_candidate`，不覆盖饮料体积识别 |
 | 细粒度识别 | 部分完成 | Module 3 是独立 client skeleton / mock / provider config，未接主链路 |
 | 库存规则更新 | 已有软件闭环 baseline | Module 4 已有 in-memory mutation、pending review 和 manual correction；Module 2 final event 可映射到 `InventoryEventInput` 并应用到 `InventoryEngine` |
-| SQLite 持久化 | baseline 已实现 | Module 4 已有可选 `SQLiteInventoryStore`，可保存/恢复 inventory、event_log、pending_review、inventory_change_log；仅在 CMake 找到 sqlite3 development files 时构建和验证，尚未接入真实 HTTP server / 小程序 / 板端长期运行 |
+| SQLite 持久化 | runtime closure 可选接入 baseline | Module 4 已有可选 `SQLiteInventoryStore`，可保存/恢复 inventory、event_log、pending_review、inventory_change_log；Module 2 session replay 和 module12 live harness 可在 sqlite3 可用且显式启用时 load/apply/save `InventoryEngine` 快照，并在 `software_closure_report.json` 输出 SQLite 状态；真实 HTTP server / 小程序 / 板端长期运行仍待验证 |
 | 本地服务接口 | 部分完成 | Module 5 已有 JSON response facade；session `final/` 可输出 inventory/events/pending/closure report evidence，尚无真实 HTTP server |
 | 小程序联调 | 尚未完成 | 小程序结构保留，真实接口联调待做 |
 | 板端部署 | 待验证 | 视频解码、推理后端、运行资源和长时间稳定性需验证 |
@@ -93,7 +93,7 @@
 
 ### P1：持久化与服务联调
 
-- SQLite baseline 接入真实 HTTP server / 小程序联调，并做板端 sqlite3 长期运行验证。
+- SQLite runtime closure baseline 已接入 session replay / live harness；下一步仍需接入真实 HTTP server / 小程序联调，并做板端 sqlite3 长期运行验证。
 - 真实 HTTP server。
 - 小程序接口联调。
 - 事件日志、库存日志、pending review 闭环。

@@ -68,6 +68,9 @@ struct AppOptions {
     Module2Mode module2_mode = Module2Mode::Mock;
     std::string mock_coarse_class = "packaged_food";
     bool write_crops = true;
+    bool enable_sqlite_persistence = false;
+    fs::path sqlite_db_path;
+    bool reset_sqlite_db = false;
     int poll_interval_ms = 2000;
 };
 
@@ -285,6 +288,9 @@ void print_usage() {
         << "  --module2-mode <mock|real_onnx_runtime>\n"
         << "  --mock-coarse-class <label>     default is packaged_food\n"
         << "  --poll-interval-ms <ms>         watch mode polling interval, default is 2000\n"
+        << "  --enable-sqlite-persistence     load/save InventoryEngine state through SQLite\n"
+        << "  --sqlite-db <path>              SQLite database path, default is data/runtime/fridge_inventory.db\n"
+        << "  --reset-sqlite-db               reset database before applying each debug/session event\n"
         << "  --no-crops                      skip writing stage2/crops/\n";
 }
 
@@ -317,6 +323,14 @@ bool parse_arguments(int argc, char** argv, AppOptions& options, std::string& er
                 options.mock_coarse_class = require_value("--mock-coarse-class");
             } else if (arg == "--poll-interval-ms") {
                 options.poll_interval_ms = std::stoi(require_value("--poll-interval-ms"));
+            } else if (arg == "--enable-sqlite-persistence") {
+                options.enable_sqlite_persistence = true;
+            } else if (arg == "--sqlite-db") {
+                options.sqlite_db_path = require_value("--sqlite-db");
+                options.enable_sqlite_persistence = true;
+            } else if (arg == "--reset-sqlite-db") {
+                options.reset_sqlite_db = true;
+                options.enable_sqlite_persistence = true;
             } else if (arg == "--no-crops") {
                 options.write_crops = false;
             } else if (arg == "--help" || arg == "-h") {
@@ -398,6 +412,16 @@ fs::path resolve_service_config_path(const fs::path& repo_root) {
         }
     }
     return repo_root / "cpp" / "configs" / "module_5_local_service.cfg";
+}
+
+fs::path resolve_sqlite_database_path(const AppOptions& options, const fs::path& repo_root) {
+    fs::path db_path = options.sqlite_db_path.empty()
+        ? repo_root / "data" / "runtime" / "fridge_inventory.db"
+        : options.sqlite_db_path;
+    if (db_path.is_relative()) {
+        db_path = repo_root / db_path;
+    }
+    return db_path;
 }
 
 fs::path find_latest_session_dir(const fs::path& root, std::string& error_message) {
@@ -1362,21 +1386,50 @@ bool process_session(
         execution.success ? "" : execution.failure_reason,
         options.module2_mode == Module2Mode::Mock
             ? "mock/debug evidence; not real ONNX, camera, or board validation"
-            : "real_onnx_runtime session replay evidence; camera and board validation are not implied"
+            : "real_onnx_runtime session replay evidence; camera and board validation are not implied",
+#ifdef FRIDGE_HAS_SQLITE
+        true
+#else
+        false
+#endif
     };
     const std::string closure_review_reason = execution.success
         ? execution.result.review_reason
         : execution.failure_reason;
-    if (!fridge::write_software_closure_evidence(
-            inventory_engine,
-            facade,
-            final_event,
-            closure_paths,
-            closure_context,
-            closure_review_reason,
-            closure_result,
-            error_message
-        )) {
+    if (options.enable_sqlite_persistence) {
+#ifdef FRIDGE_HAS_SQLITE
+        const fridge::SoftwareClosurePersistenceOptions persistence_options{
+            true,
+            resolve_sqlite_database_path(options, repo_root),
+            options.reset_sqlite_db
+        };
+        if (!fridge::write_software_closure_evidence_with_sqlite_persistence(
+                inventory_engine,
+                facade,
+                final_event,
+                closure_paths,
+                closure_context,
+                closure_review_reason,
+                persistence_options,
+                closure_result,
+                error_message
+            )) {
+            return false;
+        }
+#else
+        error_message = "SQLite persistence requested but this binary was built without sqlite3 support";
+        return false;
+#endif
+    } else if (!fridge::write_software_closure_evidence(
+                   inventory_engine,
+                   facade,
+                   final_event,
+                   closure_paths,
+                   closure_context,
+                   closure_review_reason,
+                   closure_result,
+                   error_message
+               )) {
         return false;
     }
 

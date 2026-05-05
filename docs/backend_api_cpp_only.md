@@ -36,7 +36,7 @@
 
 - HTTP 服务：`cpp-httplib` 或 `CivetWeb`
 - JSON：`nlohmann/json`
-- SQLite：`sqlite3`。当前模块 4 已有可选 `SQLiteInventoryStore` persistence baseline；模块 5 facade 仍主要从 `InventoryEngine` 状态生成响应，真实 HTTP server 读取 SQLite 仍待接入。
+- SQLite：`sqlite3`。当前模块 4 已有可选 `SQLiteInventoryStore` persistence baseline；软件闭环/session runtime 可在显式启用时通过 SQLite load/save `InventoryEngine` 快照；模块 5 facade 仍主要从 `InventoryEngine` 状态生成响应，真实 HTTP server 读取 SQLite 仍待接入。
 
 ---
 
@@ -193,7 +193,7 @@ HTTP 服务不再扫描 `event.json` 进行导入。
 - HTTP 服务从 SQLite 读取库存、事件和待确认数据
 - `event.json` 仅作为调试日志和可追溯记录
 
-当前仓库已有可选 Module 4 SQLite persistence baseline，可保存和恢复 `InventoryEngine` 快照；模块 5 当前仍从 facade/engine 状态生成 JSON 响应，尚未完成真实 HTTP server 直接读取 SQLite。
+当前仓库已有可选 Module 4 SQLite persistence baseline，可保存和恢复 `InventoryEngine` 快照；Module 2 session replay 和 module12 live harness 可在 sqlite3 可用且显式启用时先从 SQLite 加载状态、应用当前事件、再保存更新后的快照。模块 5 当前仍从 facade/engine 状态生成 JSON 响应，尚未完成真实 HTTP server 直接读取 SQLite。
 
 ---
 
@@ -202,4 +202,4 @@ HTTP 服务不再扫描 `event.json` 进行导入。
 1. 最终本地服务统一由 C/C++ 实现。
 2. 不再保留 Python/Flask 作为最终架构组成部分。
 3. 小程序当前不做调整，因此接口字段尽量保持稳定。
-4. 目标事件主链为“C/C++ 主程序内部处理并直接写库”，而非“扫描 JSON 再导入数据库”；当前仍需补齐 SQLite persistence 和真实 HTTP server。
+4. 目标事件主链为“C/C++ 主程序内部处理并直接写库”，而非“扫描 JSON 再导入数据库”；当前已有软件闭环可选 SQLite load/save baseline，仍需补齐真实 HTTP server。

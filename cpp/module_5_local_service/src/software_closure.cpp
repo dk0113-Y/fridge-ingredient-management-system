@@ -116,6 +116,14 @@ std::string evidence_files_to_json(const SoftwareClosureEvidencePaths& paths) {
     return output.str();
 }
 
+SoftwareClosurePersistenceStatus disabled_persistence_status(const SoftwareClosureContext& context) {
+    SoftwareClosurePersistenceStatus status;
+    status.requested = false;
+    status.sqlite_compiled = context.sqlite_compiled;
+    status.message = "sqlite persistence disabled";
+    return status;
+}
+
 }  // namespace
 
 InventoryEventInput map_event_to_inventory_input(
@@ -180,6 +188,17 @@ std::string build_software_closure_report_json(
            << "  \"event_log_count\": " << result.event_log_count << ",\n"
            << "  \"module2_mode\": \"" << escape_json(context.module2_mode) << "\",\n"
            << "  \"runtime_mode\": \"" << escape_json(context.runtime_mode) << "\",\n"
+           << "  \"sqlite_requested\": " << bool_to_json(result.persistence_status.requested) << ",\n"
+           << "  \"sqlite_compiled\": " << bool_to_json(result.persistence_status.sqlite_compiled) << ",\n"
+           << "  \"sqlite_db_ready\": " << bool_to_json(result.persistence_status.db_ready) << ",\n"
+           << "  \"sqlite_loaded_existing_state\": "
+           << bool_to_json(result.persistence_status.loaded_existing_state) << ",\n"
+           << "  \"sqlite_saved_after_apply\": "
+           << bool_to_json(result.persistence_status.saved_after_apply) << ",\n"
+           << "  \"sqlite_database_path\": \""
+           << escape_json(result.persistence_status.database_path) << "\",\n"
+           << "  \"sqlite_status_message\": \""
+           << escape_json(result.persistence_status.message) << "\",\n"
            << "  \"review_reason\": \"" << escape_json(result.inventory_input.review_reason) << "\",\n"
            << "  \"apply_status\": \"" << escape_json(result.apply_result.status) << "\",\n"
            << "  \"apply_message\": \"" << escape_json(result.apply_result.message) << "\",\n"
@@ -188,6 +207,49 @@ std::string build_software_closure_report_json(
            << "  \"evidence_files\": " << evidence_files_to_json(paths) << "\n"
            << "}\n";
     return output.str();
+}
+
+bool apply_software_closure_event(
+    InventoryEngine& engine,
+    const EventResult& event,
+    const std::string& review_reason,
+    SoftwareClosureResult& result
+) {
+    const SoftwareClosurePersistenceStatus persistence_status = result.persistence_status;
+
+    result = SoftwareClosureResult{};
+    result.persistence_status = persistence_status;
+    result.inventory_input = map_event_to_inventory_input(event, review_reason);
+    result.apply_result = engine.apply_event(result.inventory_input);
+    result.pending_review_count = engine.pending_reviews().size();
+    result.inventory_item_count = engine.inventory_items().size();
+    result.event_log_count = engine.event_log().size();
+    result.closure_status = result.apply_result.status.empty()
+        ? "unknown"
+        : result.apply_result.status;
+    return true;
+}
+
+bool write_software_closure_outputs(
+    const InventoryEngine& engine,
+    const LocalServiceFacade& facade,
+    const EventResult& event,
+    const SoftwareClosureEvidencePaths& paths,
+    const SoftwareClosureContext& context,
+    const SoftwareClosureResult& result,
+    std::string& error_message
+) {
+    if (!write_text_file(paths.inventory_response_path, facade.handle_inventory(engine), error_message) ||
+        !write_text_file(paths.events_response_path, facade.handle_events(engine), error_message) ||
+        !write_text_file(paths.pending_response_path, facade.handle_pending(engine), error_message)) {
+        return false;
+    }
+
+    return write_text_file(
+        paths.software_closure_report_path,
+        build_software_closure_report_json(event, context, paths, result),
+        error_message
+    );
 }
 
 bool write_software_closure_evidence(
@@ -201,26 +263,11 @@ bool write_software_closure_evidence(
     std::string& error_message
 ) {
     result = SoftwareClosureResult{};
-    result.inventory_input = map_event_to_inventory_input(event, review_reason);
-    result.apply_result = engine.apply_event(result.inventory_input);
-    result.pending_review_count = engine.pending_reviews().size();
-    result.inventory_item_count = engine.inventory_items().size();
-    result.event_log_count = engine.event_log().size();
-    result.closure_status = result.apply_result.status.empty()
-        ? "unknown"
-        : result.apply_result.status;
-
-    if (!write_text_file(paths.inventory_response_path, facade.handle_inventory(engine), error_message) ||
-        !write_text_file(paths.events_response_path, facade.handle_events(engine), error_message) ||
-        !write_text_file(paths.pending_response_path, facade.handle_pending(engine), error_message)) {
+    result.persistence_status = disabled_persistence_status(context);
+    if (!apply_software_closure_event(engine, event, review_reason, result)) {
         return false;
     }
-
-    return write_text_file(
-        paths.software_closure_report_path,
-        build_software_closure_report_json(event, context, paths, result),
-        error_message
-    );
+    return write_software_closure_outputs(engine, facade, event, paths, context, result, error_message);
 }
 
 }  // namespace fridge
